@@ -1,7 +1,6 @@
 -module(login_manager).
 -export([start/0, create_account/2, close_account/1, login/2, logout/1, online/0]).
 
-%%% ========== CLIENT API ==========
 
 rpc(Request) ->
     ?MODULE ! {self(), Request},
@@ -24,10 +23,9 @@ logout(User) ->
 online() ->
     rpc(online).
 
-%%% ========== SERVER ==========
 
 start() ->
-    Map = #{}, %% Mapa inicial: #{username => {password, logged_in}}
+    Map = #{}, 
     Pid = spawn(fun() -> loop(Map) end),
     register(?MODULE, Pid).
 

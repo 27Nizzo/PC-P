@@ -1,0 +1,7 @@
+-> O MESMO JOGADOR NAO PODE DUELAR CONTRA SI MESMO;
+
+-- PENSAMENTO -- 
+-> Perceber porque ficam guardados no login manager mas esses dados nao passam para o server localhost;
+-> Podemos criar users dentro do login_manager a partir de comandos(estão no discord) mas nao podemos usa-los quando criamos o localhost;
+-> Então temos que arranjar forma de passar esses dados do login_manager para o server que cria o localhost;
+-- PENSAMENTO --
