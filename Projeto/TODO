@@ -1,7 +1,39 @@
--> O MESMO JOGADOR NAO PODE DUELAR CONTRA SI MESMO;
+-> O MESMO JOGADOR NAO PODE DUELAR CONTRA SI MESMO;(feito - 18/04)
 
 -- PENSAMENTO -- 
 -> Perceber porque ficam guardados no login manager mas esses dados nao passam para o server localhost;
 -> Podemos criar users dentro do login_manager a partir de comandos(estão no discord) mas nao podemos usa-los quando criamos o localhost;
 -> Então temos que arranjar forma de passar esses dados do login_manager para o server que cria o localhost;
 -- PENSAMENTO --
+
+---------------
+- DUVIDAs:
+    - O Servidor tem que funcionar para pc's externos? Isto é, para uma pessoa que por exemplo que esta ao meu lado possa entrar na mesma sessão que eu;
+    - Utilizar o quê para guardar os dados;
+---------------
+
+(ideias)
+-> Gestão de Sessões e Estados:
+
+- Verificação de Sessão Ativa: Antes de permitir um novo login, verificar se o utilizador já tem uma sessão ativa e, se necessário, terminar a sessão anterior.
+
+- Timeout de Sessão: Implementar um mecanismo que termine sessões inativas após um determinado período.
+
+- Logout Explícito: Permitir que os utilizadores terminem a sessão de forma explícita, garantindo que o estado de login é atualizado corretamente
+
+-> Validação dos Dados e Segurança:
+
+- Validação de Entradas: Verificar que os nomes de utilizador e palavras-passe cumprem critérios específicos (por exemplo, comprimento mínimo, caracteres permitidos).
+
+- Hashing de Palavras-Passe: Em vez de armazenar palavras-passe em texto simples, utilizar funções de hashing (como bcrypt) para armazenar apenas os hashes.
+
+- Proteção contra Ataques de Força Bruta: Implementar mecanismos para limitar o número de tentativas de login falhadas, como bloqueios temporários após várias tentativas incorretas.
+
+A fazer no futuro:
+
+- Adicionar lógica dentro do duel.erl (simulação de combate, mensagens, etc.)
+
+- Implementar uma get_user_info/1 para mostrar os dados do jogador
+
+- Começar a preparar integração com cliente Java mais tarde
+(os ultimos dois fazem-se ao mesmo tempo)

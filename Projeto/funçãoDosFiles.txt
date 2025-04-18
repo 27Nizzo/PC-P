@@ -1,0 +1,52 @@
+server.erl:
+- Função:
+    -> Responsável por iniciar o servidor TCP e aceitar ligações dos clientes.
+- O que faz:
+    ->  Abre um socket na porta 1234;
+
+    ->  Entra num ciclo de aceitação (accept_loop/1);
+
+    ->  Cria um novo processo client_session para cada cliente ligado;
+
+matchmaker.erl:
+- Função:
+    -> Gere a fila de jogadores que pedem para jogar e emparelha dois jogadores para iniciar um duelo.
+
+- O que faz:
+
+    -> Mantém uma fila de usernames à espera
+
+    -> Quando há dois jogadores na fila, emparelha-os e imprime no terminal
+
+    -> Em futuro próximo: vai iniciar um processo duel para simular o jogo
+
+client_session.erl:
+
+- Função:
+    -> Processo de sessão de cada cliente. Lê comandos, valida login, e comunica com o login_manager e matchmaker.
+ 
+ - O que faz:
+
+    -> Ao conectar, mostra opções: REGISTER, LOGIN, UNREGISTER
+
+    -> Usa login_manager para tratar credenciais
+
+    -> Usa matchmaker quando o jogador escreve PLAY
+
+    -> Apenas permite jogar se o jogador estiver autenticado
+
+    -> Envia mensagens de resposta para o cliente (gen_tcp:send/2)
+
+login_manager:
+- Função:
+    -> Gere autenticação e estado de jogadores no servidor, incluindo:
+
+        -> Criação de conta
+
+        -> Login e logout
+
+        -> Apagar conta
+
+        -> Lista de jogadores online
+
+duel.erl:

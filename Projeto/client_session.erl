@@ -10,7 +10,7 @@ start(Socket) ->
     gen_tcp:send(Socket, <<"Bem-vindo! Escreva LOGIN, REGISTER ou UNREGISTER\n">>),
     loop(Socket, #state{}).
 
-loop(Socket, State) ->
+loop(Socket, State = #state{username = Username, logged_in = LoggedIn}) ->
     case gen_tcp:recv(Socket, 0) of
         {ok, Line} ->
             Input = clean_input(Line),
@@ -18,6 +18,7 @@ loop(Socket, State) ->
             loop(Socket, NewState);
         {error, closed} ->
             io:format("Cliente desconectado~n"),
+            if LoggedIn -> login_manager:logout(Username); true -> ok end, % Isto faz com que quando o telnet vai abaixo os users são delogados
             ok
     end.
 
@@ -94,6 +95,19 @@ handle_input(<<"UNREGISTER">>, Socket, State = #state{username = Username, logge
 
 handle_input(<<"UNREGISTER">>, Socket, State) ->
     gen_tcp:send(Socket, <<"Tem de estar autenticado para remover a conta.\n">>),
+    State;
+
+handle_input(<<"ENDDUEL">>, Socket, State = #state{logged_in = true, username = Username}) ->
+    case matchmaker:end_duel(Username) of
+        {ok, ended} ->
+            gen_tcp:send(Socket, <<"Duelo Terminado.\n">>);
+        {error, not_in_duel} ->
+            gen_tcp:send(Socket, <<"Não estás em nenhum duelo de momento\n">>)
+    end,
+    State;
+
+handle_input(<<"ENDDUEL">>, Socket, State) ->
+    gen_tcp:send(Socket, <<"Precisas de estar autenticado para usar o ENDDUEL\n">>),
     State;
 
 %%% COMANDO INVÁLIDO %%%

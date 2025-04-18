@@ -1,5 +1,5 @@
 -module(login_manager).
--export([start/0, create_account/2, close_account/1, login/2, logout/1, online/0]).
+-export([start/0, create_account/2, close_account/1, login/2, logout/1, online/0, is_logged_in/1]).
 
 
 rpc(Request) ->
@@ -67,6 +67,14 @@ loop(Map) ->
                     loop(Map)
             end;
 
+        {Pid, {is_logged_in, User}} ->
+                case maps:get(User, Map, undefined) of
+                   {_, true} -> Pid ! true;
+                    _ -> Pid ! false
+                end,
+                    loop(Map);
+
+
         {Pid, {logout, U}} ->
             case maps:find(U, Map) of
                 {ok, {P, true}} ->
@@ -83,6 +91,9 @@ loop(Map) ->
             Pid ! OnlineUsers,
             loop(Map)
     end.
+
+is_logged_in(User) ->
+    rpc({is_logged_in, User}).
 
 
 %
