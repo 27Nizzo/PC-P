@@ -6,7 +6,8 @@ start() ->
         binary,
         {packet, line},    
         {active, false},    
-        {reuseaddr, true}   
+        {reuseaddr, true},
+        {ip, {0,0,0,0}} % ligações para fora
     ]),
     io:format("Servidor a correr na porta 1234~n"),
     accept_loop(ListenSocket).

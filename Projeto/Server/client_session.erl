@@ -18,7 +18,7 @@ loop(Socket, State = #state{username = Username, logged_in = LoggedIn}) ->
             loop(Socket, NewState);
         {error, closed} ->
             io:format("Cliente desconectado~n"),
-            if LoggedIn -> login_manager:logout(Username); true -> ok end, % Isto faz com que quando o telnet vai abaixo os users são delogados
+            if LoggedIn -> login_manager:logout(Username); true -> ok end,
             ok
     end.
 
@@ -96,6 +96,8 @@ handle_input(<<"UNREGISTER">>, Socket, State = #state{username = Username, logge
 handle_input(<<"UNREGISTER">>, Socket, State) ->
     gen_tcp:send(Socket, <<"Tem de estar autenticado para remover a conta.\n">>),
     State;
+
+%%% TERMINAR DUELO %%%
 
 handle_input(<<"ENDDUEL">>, Socket, State = #state{logged_in = true, username = Username}) ->
     case matchmaker:end_duel(Username) of

@@ -9,6 +9,6 @@ Escrevem erl na diretoria correta e aquilo vai abrir o erl shell e de seguida me
 - c(server), server:start().
 
 2) Segundo terminal metem:
-- telnet localhost 1234
+- telnet 192.168.77.216 1234
 
 (caso nao tenham façam sudo apt ou qualquer coisa :D)
