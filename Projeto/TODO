@@ -40,6 +40,5 @@ A fazer no futuro:
 
 - !! TODO !!
     - Fazer com que o server telnet funcione em outros pc's, ou seja, uma pessoa consiga conectar-se ao meu servidor via outro pc exterior
-
     - comando INFO para mostrar as informações do utilizador Logged;
     - lógica dos duelos quando tivermos o jogo em java feito;

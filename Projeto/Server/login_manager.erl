@@ -1,51 +1,43 @@
 -module(login_manager).
 -export([start/0, create_account/2, close_account/1, login/2, logout/1, online/0, is_logged_in/1]).
 
-
+%% Interface de chamadas remotas (RPC)
 rpc(Request) ->
     ?MODULE ! {self(), Request},
     receive
         Response -> Response
+    after 5000 ->
+        {error, timeout}
     end.
 
-create_account(User, Pass) ->
-    rpc({create_account, User, Pass}).
-
-close_account(User) ->
-    rpc({close_account, User}).
-
-login(User, Pass) ->
-    rpc({login, User, Pass}).
-
-logout(User) ->
-    rpc({logout, User}).
-
-online() ->
-    rpc(online).
-
-
+%% Inicia o serviço e cria o usuário admin automaticamente
 start() ->
-    Map = #{}, 
-    Pid = spawn(fun() -> loop(Map) end),
-    register(?MODULE, Pid).
+    InitialMap = #{}, 
+    MapWithAdmin = maps:put("admin", {"adminpw", false}, InitialMap), % Cria admin com senha "adminpw"
+    Pid = spawn(fun() -> loop(MapWithAdmin) end),
+    register(?MODULE, Pid),
+    {ok, started}.
 
+%% Loop principal do servidor
 loop(Map) ->
     receive
-        {Pid, {create_account, U, P}} ->
-            case maps:is_key(U, Map) of
+        %% Criação de conta
+        {Pid, {create_account, User, Pass}} ->
+            case maps:is_key(User, Map) of
                 true ->
                     Pid ! {error, user_exists},
                     loop(Map);
                 false ->
-                    NewMap = maps:put(U, {P, false}, Map),
+                    NewMap = maps:put(User, {Pass, false}, Map),
                     Pid ! {ok, created},
                     loop(NewMap)
             end;
 
-        {Pid, {close_account, U}} ->
-            case maps:is_key(U, Map) of
+        %% Remoção de conta
+        {Pid, {close_account, User}} ->
+            case maps:is_key(User, Map) of
                 true ->
-                    NewMap = maps:remove(U, Map),
+                    NewMap = maps:remove(User, Map),
                     Pid ! {ok, removed},
                     loop(NewMap);
                 false ->
@@ -53,10 +45,11 @@ loop(Map) ->
                     loop(Map)
             end;
 
-        {Pid, {login, U, P}} ->
-            case maps:find(U, Map) of
-                {ok, {StoredPass, false}} when StoredPass =:= P ->
-                    NewMap = maps:put(U, {P, true}, Map),
+        %% Login
+        {Pid, {login, User, Pass}} ->
+            case maps:find(User, Map) of
+                {ok, {StoredPass, false}} when StoredPass =:= Pass ->
+                    NewMap = maps:put(User, {Pass, true}, Map),
                     Pid ! {ok, logged_in},
                     loop(NewMap);
                 {ok, {_, true}} ->
@@ -67,18 +60,11 @@ loop(Map) ->
                     loop(Map)
             end;
 
-        {Pid, {is_logged_in, User}} ->
-                case maps:get(User, Map, undefined) of
-                   {_, true} -> Pid ! true;
-                    _ -> Pid ! false
-                end,
-                    loop(Map);
-
-
-        {Pid, {logout, U}} ->
-            case maps:find(U, Map) of
-                {ok, {P, true}} ->
-                    NewMap = maps:put(U, {P, false}, Map),
+        %% Logout
+        {Pid, {logout, User}} ->
+            case maps:find(User, Map) of
+                {ok, {Pass, true}} ->
+                    NewMap = maps:put(User, {Pass, false}, Map),
                     Pid ! {ok, logged_out},
                     loop(NewMap);
                 _ ->
@@ -86,39 +72,36 @@ loop(Map) ->
                     loop(Map)
             end;
 
+        %% Lista de usuários online
         {Pid, online} ->
             OnlineUsers = [U || {U, {_, true}} <- maps:to_list(Map)],
             Pid ! OnlineUsers,
+            loop(Map);
+
+        %% Verifica se usuário está logado
+        {Pid, {is_logged_in, User}} ->
+            case maps:get(User, Map, undefined) of
+                {_, true} -> Pid ! true;
+                _ -> Pid ! false
+            end,
+            loop(Map);
+
+        %% Mensagem desconhecida
+        Unknown ->
+            io:format("Mensagem desconhecida: ~p~n", [Unknown]),
             loop(Map)
     end.
 
-is_logged_in(User) ->
-    rpc({is_logged_in, User}).
+%% Funções públicas (API)
 
+create_account(User, Pass) -> rpc({create_account, User, Pass}).
 
-%
-% 1º) Metes este comando para entrar no shell erlang: erl
+close_account(User) -> rpc({close_account, User}).
 
-% 2º) c(login_manager). -> Compila o ficheiro
+login(User, Pass) -> rpc({login, User, Pass}).
 
-% 3º) Começa o servidor:
+logout(User) -> rpc({logout, User}).
 
-% login_manager:start().
+online() -> rpc(online).
 
-% 4º) Criar User:
-
-% login_manager:create_account("afonso", "pw123").
-
-% 5º) Login do user:
-% login_manager:login("afonso", "pw123").
-
-% 6º) Comando para ver quem está online no servidor:
-% login_manager:online().
-
-% 7º) Para dar logout ao user:
-% login_manager:logout("afonso").
-
-% 8º) Para encerrar/apagar o user:
-% login_manager:close_account("afonso").
-
-% Nota: Podes apagar o user sem dar logout ao mesmo
+is_logged_in(User) -> rpc({is_logged_in, User}).
