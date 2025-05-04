@@ -17,10 +17,8 @@ rpc(Request) ->
 
 % Iniciar servidor com dados carregados (se existirem)
 start() ->
-    case readFile:readAccounts() of
-        {ok, Users} -> Pid = spawn(fun() -> loop(Users) end);
-        _ -> Pid = spawn(fun() -> loop(#{"admin" => {"adminpw", 0, false}}) end)
-    end,
+    Users = readFile:readAccounts(),
+    Pid = spawn(fun() -> loop(Users) end),
     register(?MODULE, Pid),
     {ok, started}.
 
