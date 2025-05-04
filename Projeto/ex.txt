@@ -1,0 +1,33 @@
+1> c(readFile).
+{ok,readFile}
+2> c(account_server).
+{ok,account_server}
+3> account_server:start().
+{ok,started}
+4> account_server:login().
+** exception error: undefined function account_server:login/0
+5> account_server:login({"Nizzo","nizzopw"}).
+{ok,logged_in}
+6> account_server:login({"Bio","biopw"}).    
+{ok,logged_in}
+7> account_server:login({"Pietro","pietropw"}).
+{ok,logged_in}
+8> account_server:login({"Rmv","rmvpw"}).      
+{ok,logged_in}
+9> c(matchmaker).                        
+{ok,matchmaker}
+10> matchmaker:start(). 
+true
+11> matchmaker:manual_start_duel("Rmv", "Pietro").
+{ok,started}
+12> matchmaker:manual_start_duel("Nizzo", "Bio").   
+{ok,started}
+13> matchmaker:end_duel("Nizzo").
+Duelo entre Nizzo e Bio terminado por Nizzo
+{ok,ended}
+14> matchmaker:end_duel("Pietro").
+Duelo entre Rmv e Pietro terminado por Pietro
+{ok,ended}
+
+
+matchmaker:enter_queue("Nizzo") , matchmaker:enter_queue("Bio").

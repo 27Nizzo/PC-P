@@ -1,84 +1,65 @@
 -module(matchmaker).
--export([start/0, enter_queue/1, leave_queue/1, end_duel/1]).
+-export([start/0, enter_queue/1, end_duel/1]).
 
 start() ->
-    ets:new(?MODULE, [set, named_table, public]),
-    Pid = spawn(fun() -> loop([], #{}) end),
-    register(?MODULE, Pid).
+    ets:new(matchmaker_table, [named_table, set, public]),
+    spawn(fun() -> loop([], []) end),
+    true.
 
 enter_queue(Username) ->
-    call({enter, Username}).
-
-leave_queue(Username) ->
-    call({leave, Username}).
+    %% Confirma se o utilizador está autenticado
+    case account_server:is_logged_in(Username) of
+        true ->
+            %% Envia mensagem ao processo principal
+            whereis(?MODULE) ! {enter_queue, Username},
+            {ok, waiting};
+        false ->
+            {error, not_logged_in}
+    end.
 
 end_duel(Username) ->
-    call({end_duel, Username}).
-
-call(Request) ->
-    ?MODULE ! {self(), Request},
-    receive
-        Response -> Response
-    after 5000 -> {error, timeout}
-    end.
+    whereis(?MODULE) ! {end_duel, Username},
+    {ok, ended}.
 
 loop(Queue, Duels) ->
     receive
-        {Pid, {enter, Username}} ->
-            case {login_manager:is_logged_in(Username), lists:member(Username, Queue)} of
-                {true, false} ->
-                    NewQueue = Queue ++ [Username],
-                    ets:insert(?MODULE, {Username}),
-                    case match_players(NewQueue) of
-                        {matched, P1, P2, Rest} ->
-                            start_duel(Pid, P1, P2, Rest, Duels);
-                        no_match ->
-                            reply(Pid, {ok, queued}),
-                            loop(NewQueue, Duels)
-                    end;
-                {false, _} ->
-                    reply(Pid, {error, not_logged_in}),
-                    loop(Queue, Duels);
-                {_, true} ->
-                    reply(Pid, {error, already_in_queue}),
-                    loop(Queue, Duels)
-            end;
-
-        {Pid, {leave, Username}} ->
-            case lists:member(Username, Queue) of
+        {enter_queue, Username} ->
+            case lists:member(Username, Queue) orelse ets:lookup(matchmaker_table, Username) =/= [] of
                 true ->
-                    NewQueue = lists:delete(Username, Queue),
-                    ets:delete(?MODULE, Username),
-                    reply(Pid, ok),
-                    loop(NewQueue, Duels);
+                    loop(Queue, Duels); % já na fila ou em duelo
                 false ->
-                    reply(Pid, {error, not_in_queue}),
+                    ets:insert(matchmaker_table, {Username, in_queue}),
+                    case Queue of
+                        [] ->
+                            loop([Username], Duels);
+                        [Opponent | RestQueue] ->
+                            %% Confirmar se ambos estão ainda em queue
+                            case {ets:lookup(matchmaker_table, Username), ets:lookup(matchmaker_table, Opponent)} of
+                                {[{Username, in_queue}], [{Opponent, in_queue}]} ->
+                                    ets:insert(matchmaker_table, {Username, in_duel}),
+                                    ets:insert(matchmaker_table, {Opponent, in_duel}),
+                                    Pid = duel:start(Username, Opponent),
+                                    loop(RestQueue, [{Username, Pid}, {Opponent, Pid} | Duels]);
+                                _ ->
+                                    loop([Username | Queue], Duels)
+                            end
+                    end
+            end;
+
+        {end_duel, Username} ->
+            case lists:keyfind(Username, 1, Duels) of
+                {Username, Pid} ->
+                    Pid ! {end_duel, Username},
+                    ets:delete(matchmaker_table, Username),
+                    %% Remover ambos os jogadores do duelo
+                    {_, Pid2} = lists:keyfind(Username, 1, Duels),
+                    Remaining = lists:filter(fun({_, P}) -> P =/= Pid2 end, Duels),
+                    loop(Queue, Remaining);
+                false ->
+                    io:format("~s não está em duelo~n", [Username]),
                     loop(Queue, Duels)
             end;
 
-        {Pid, {end_duel, Username}} ->
-            case maps:find(Username, Duels) of
-                {ok, DuelPid} ->
-                    DuelPid ! {end_duel, Username},
-                    NewDuels = maps:filter(fun(_, P) -> P =/= DuelPid end, Duels),
-                    reply(Pid, {ok, ended}),
-                    loop(Queue, NewDuels);
-                error ->
-                    reply(Pid, {error, not_in_duel}),
-                    loop(Queue, Duels)
-            end
+        _Other ->
+            loop(Queue, Duels)
     end.
-
-match_players([P1, P2 | Rest]) when P1 =/= P2 -> {matched, P1, P2, Rest};
-match_players(_) -> no_match.
-
-start_duel(Pid, P1, P2, RestQueue, Duels) ->
-    DuelPid = duel:start(P1, P2),
-    NewDuels = Duels#{P1 => DuelPid, P2 => DuelPid},
-    ets:delete(?MODULE, P1),
-    ets:delete(?MODULE, P2),
-    reply(Pid, {ok, waiting}),
-    loop(RestQueue, NewDuels).
-
-reply(Pid, Msg) ->
-    Pid ! Msg.
