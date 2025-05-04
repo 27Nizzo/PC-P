@@ -24,7 +24,8 @@ class Button {
     }
 }
 
-public class App extends PApplet {
+// Renamed class from App to ClientGUI
+public class ClientGUI extends PApplet {
   Client client;
   String username = "";
   String password = "";
@@ -208,6 +209,6 @@ public class App extends PApplet {
   }
 
   public static void main(String... args) {
-    PApplet.main(App.class);
+    PApplet.main(ClientGUI.class);
   }
 }
