@@ -1,54 +1,108 @@
 package Client;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.*;
 
 public class Client {
-    private Socket socket;
-    private DataOutputStream out;
-    private DataInputStream in;
+    private Socket s; 
+    private BufferedReader in;
+    private PrintWriter out;
+    StringBuilder sb = new StringBuilder();
 
-    public void connect(String host, int port) throws IOException {
-        socket = new Socket(host, port);
-        out = new DataOutputStream(socket.getOutputStream());
-        in = new DataInputStream(socket.getInputStream());
-        System.out.println("Ligado ao servidor " + host + ":" + port);
+    public Client(String host, int port) throws IOException {
+        this.s = new Socket(host, port);
+        this.in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+        this.out = new PrintWriter(s.getOutputStream());
     }
 
-    public void send(String msg) throws IOException {
-        out.write(msg.getBytes());
+    public void send(String message) {
+        out.println(message);
         out.flush();
     }
 
     public String receive() throws IOException {
-        byte[] buffer = new byte[1024]; // Ajusta conforme necessário
-        int bytesRead = in.read(buffer);
-        if (bytesRead == -1) {
-            return null;
-        }
-        return new String(buffer, 0, bytesRead);
+        return in.readLine();
     }
 
-    public void close() throws IOException {
-        in.close();
-        out.close();
-        socket.close();
+    public void create_account(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.UserExists {
+        sb.append("create_account#").append(username).append(" ").append(password);
+        send(sb.toString());
+        sb.setLength(0);
+
+        String response = receive();
+        switch (response) {
+            case "done": break;
+            case "user_exists": throw new Exceptions.UserExists("User already exists.");
+            case "invalid_password": throw new Exceptions.InvalidPassword("Invalid password.");
+        }
+    }
+    
+
+    public void login(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
+        sb.append("login#").append(username).append(" ").append(password);
+        send(sb.toString());
+        sb.setLength(0);
+
+        String response = receive();
+        switch (response) {
+            case "Login#Success": break;
+            case "Login#InvalidPassword": throw new Exceptions.InvalidPassword("Invalid password");
+            case "Login#InvalidAccount":  throw new Exceptions.InvalidAccount("Invalid account");    
+        }
     }
 
-    public static void main(String[] args) {
-        Client client = new Client();
-        try {
-            client.connect("localhost", 1234);
+    public void logout() throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
+        sb.append("Logout#");
+        send(sb.toString());
+        sb.setLength(0);
 
-            // Exemplo: enviar comando de login (como string crua)
-            client.send("{login, \"Afonso\", \"1234\"}.\n");
-
-            String response = client.receive();
-            System.out.println("Resposta do servidor: " + response);
-
-            client.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        String response = receive();
+        switch(response) {
+            case "Logout#Success": break;
+            case "Logout#InvalidPassword": throw new Exceptions.InvalidPassword("Invalid password");
+            case "Logout#InvalidAccount":  throw new Exceptions.InvalidAccount("Invalid account");    
         }
+    }
+
+    public void join(String username, String password) throws IOException, Exceptions.InvalidAccount, Exceptions.FullServer {
+        sb.append("Join#").append(username).append(" ").append(password);
+        send(sb.toString());
+        sb.setLength(0);
+
+        String response = receive();
+        switch (response) {
+            case "Join#Success": break;
+            case "Join#FullServer": throw new Exceptions.FullServer("Server is full");
+            case "Join#Exceptions.InvalidAccount": throw new Exceptions.InvalidAccount("Invalid account");
+        }
+    }
+
+    public void remove_account(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
+        sb.append("remove_account#").append(username).append(" ").append(password);
+        send(sb.toString());
+        sb.setLength(0);
+
+        String response = receive();
+        switch (response) {
+            case "done": break;
+            case "invalid_account": throw new Exceptions.InvalidAccount("Invalid account.");
+            case "invalid_password": throw new Exceptions.InvalidPassword("Invalid password.");
+        }
+    }
+
+    public Set<String> online() throws IOException {
+        sb.append("online#");
+        send(sb.toString());
+        sb.setLength(0);
+
+        String response = receive();
+        String[] playerStrings = response.split(" ");
+        Set<String> users = new TreeSet<>();
+        for(String user : playerStrings) users.add(user);
+        return users;   
     }
 }
