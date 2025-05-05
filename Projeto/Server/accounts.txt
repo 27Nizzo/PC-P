@@ -1,5 +1,3 @@
-Bio.biopw.0
-Nizzo.nizzopw.0
-Pietro.pietropw.0
-Rmv.rmvpw.0
-admin.adminpw.0
+Bio.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}
+Nizzo.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}
+Pietro.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}

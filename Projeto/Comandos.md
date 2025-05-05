@@ -15,3 +15,5 @@ Escrevem erl na diretoria correta e aquilo vai abrir o erl shell e de seguida me
 - telnet 192.168.1.13 1234
 
 (caso nao tenham façam sudo apt ou qualquer coisa :D)
+
+DESATUALIZADO!!!
