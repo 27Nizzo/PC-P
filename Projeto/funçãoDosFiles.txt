@@ -37,7 +37,7 @@ client_session.erl:
 
     -> Envia mensagens de resposta para o cliente (gen_tcp:send/2)
 
-login_manager:
+account_server:
 - Função:
     -> Gere autenticação e estado de jogadores no servidor, incluindo:
 

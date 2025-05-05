@@ -113,7 +113,7 @@ loop(Users) ->
             loop(Users);
 
         {Pid, online} ->
-            Online = [U || {U, {_, _, true}} <- maps:to_list(Users)],
+            Online = [U || {U, #{logged_in := true}} <- maps:to_list(Users)],
             Pid ! Online,
             loop(Users);
 
