@@ -105,4 +105,14 @@ public class Client {
         for(String user : playerStrings) users.add(user);
         return users;   
     }
+
+    // Player Info:
+
+    public String getInfo(String username) throws IOException {
+        sb.append("info#").append(username);
+        send(sb.toString());
+        sb.setLength(0);
+
+        return receive();
+    }
 }

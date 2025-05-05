@@ -3,7 +3,7 @@
     start/0, create_account/2, is_logged_in/1, 
     online/0, remove_account/1,
     rpc/1, login/1, logout/1, auth/1,
-    loop/1
+    loop/1, get_stats/1, update_stats/2
 ]).
 
 % Interface RPC
@@ -17,10 +17,18 @@ rpc(Request) ->
 
 % Iniciar servidor com dados carregados (se existirem)
 start() ->
-    Users = readFile:readAccounts(),
-    Pid = spawn(fun() -> loop(Users) end),
-    register(?MODULE, Pid),
-    {ok, started}.
+    case whereis(?MODULE) of
+        undefined ->
+            % Se não houver um processo registado, criamos o processo
+            Users = readFile:readAccounts(),
+            Pid = spawn(fun() -> loop(Users) end),
+            register(?MODULE, Pid),
+            {ok, started};
+        _Pid ->
+            % Caso o processo já tenha sido registado
+            {error, already_started}
+    end.
+
 
 % Loop principal do servidor
 loop(Users) ->
@@ -34,7 +42,8 @@ loop(Users) ->
                     Pid ! {error, invalid_password},
                     loop(Users);
                 false ->
-                    NewUsers = maps:put(User, {Pass, 0, false}, Users),
+                    Info = #{password => Pass, nvl => 1, wins => 0, losses => 0, logged_in => false},
+                    NewUsers = maps:put(User, Info, Users),
                     readFile:writeAccounts(NewUsers),
                     Pid ! {ok, created},
                     loop(NewUsers)
@@ -56,22 +65,23 @@ loop(Users) ->
             end;
 
         {Pid, {login, {User, Pass}}} ->
-            case maps:find(User, Users) of
-                {ok, {PassStored, Score, false}} when PassStored == Pass ->
-                    NewUsers = maps:put(User, {PassStored, Score, true}, Users),
+            case maps:get(User, Users, undefined) of
+                undefined ->
+                    Pid ! {error, invalid_account},
+                    loop(Users);
+                #{password := PassStored, logged_in := false} = Info when PassStored == Pass ->
+                    NewInfo = Info#{logged_in => true},
+                    NewUsers = maps:put(User, NewInfo, Users),
+                    readFile:writeAccounts(NewUsers),
                     Pid ! {ok, logged_in},
                     loop(NewUsers);
-                {ok, {_, _, true}} ->
-                    Pid ! {error, already_logged_in},
-                    loop(Users);
-                {ok, _} ->
-                    Pid ! {error, invalid_password},
+                #{logged_in := true} ->
+                    Pid ! {error, logged_in},
                     loop(Users);
                 _ ->
-                    Pid ! {error, invalid_account},
+                    Pid ! {error, invalid_password},
                     loop(Users)
             end;
-
         {Pid, {logout, {User, Pass}}} ->
             case maps:find(User, Users) of
                 {ok, {PassStored, Score, true}} when PassStored == Pass ->
@@ -107,6 +117,21 @@ loop(Users) ->
             Pid ! Online,
             loop(Users);
 
+        {Pid, {update_stats, User, Result}} ->
+            case maps:find(User, Users) of
+                {ok, #{password := Pass, nvl := Nvl, wins := Wins, losses := Losses, logged_in := LoggedIn}} ->
+                    UpdateStats = case Result of
+                        wins -> #{password => Pass, nvl => Nvl + 1, wins => Wins + 1, losses => Losses, logged_in => LoggedIn};
+                        loss -> #{password => Pass, nvl => Nvl, wins => Wins, losses => Losses + 1, logged_in => LoggedIn};
+                        _ -> #{password => Pass, nvl => Nvl, wins => Wins, losses => Losses, logged_in => LoggedIn}
+                    end,
+                    NewUsers = maps:put(User, UpdateStats, Users),
+                    readFile:writeAccounts(NewUsers),
+                    loop(NewUsers);
+                _ -> 
+                    Pid ! {error, not_found}
+            end;
+
         Unknown ->
             io:format("Mensagem desconhecida: ~p~n", [Unknown]),
             loop(Users)
@@ -119,3 +144,5 @@ logout({User, Pass}) -> rpc({logout, {User, Pass}}).
 auth({User, Pass}) -> rpc({auth, {User, Pass}}).
 is_logged_in(User) -> rpc({is_logged_in, User}).
 online() -> rpc(online).
+get_stats(User) -> rpc({get_stats, User}).
+update_stats(User, Result) -> rpc({update_stats, User, Result}).
