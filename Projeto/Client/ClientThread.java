@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.Socket;
-
-import javax.xml.crypto.Data;
+import Client.Data;
 
 public class ClientThread extends Thread {
     private final Socket socket;

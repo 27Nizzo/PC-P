@@ -1,136 +1,51 @@
 package Client;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
-import java.util.*;
-
 public class Client {
-    private Socket s; 
-    private BufferedReader in;
-    private PrintWriter out;
-    StringBuilder sb = new StringBuilder();
-
-    public Client(String host, int port) throws IOException {
-        this.s = new Socket(host, port);
-        this.in = new BufferedReader(new InputStreamReader(s.getInputStream()));
-        this.out = new PrintWriter(s.getOutputStream());
+    public static void main(String[] args) {
+        new Client().start(args);
     }
 
-    public void send(String message) {
-        out.println(message);
-        out.flush();
-    }
-
-    public String receive() throws IOException {
-        return in.readLine();
-    }
-
-    public void create_account(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.UserExists {
-        sb.append("create_account#").append(username).append(" ").append(password);
-        send(sb.toString());
-        sb.setLength(0);
-
-        String response = receive();
-        switch (response) {
-            case "done": break;
-            case "user_exists": throw new Exceptions.UserExists("User already exists.");
-            case "invalid_password": throw new Exceptions.InvalidPassword("Invalid password.");
+    private void start(String[] args) {
+        if (args.length < 2) {
+            printUsageAndExit();
         }
-    }
-    
 
-    public void login(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
-        sb.append("login#").append(username).append(" ").append(password);
-        send(sb.toString());
-        sb.setLength(0);
+        String host = args[0];
+        int port = parsePort(args[1]);
 
-        String response = receive();
-        switch (response) {
-            case "Login#Success": break;
-            case "Login#InvalidPassword": throw new Exceptions.InvalidPassword("Invalid password");
-            case "Login#InvalidAccount":  throw new Exceptions.InvalidAccount("Invalid account");    
+        try {
+            runClient(host, port);
+        } catch (Exception e) {
+            System.err.println("Erro ao iniciar cliente: " + e.getMessage());
         }
     }
 
-    public void logout() throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
-        sb.append("Logout#");
-        send(sb.toString());
-        sb.setLength(0);
+    private void runClient(String host, int port) throws Exception {
+        ClientTCP clientTCP = new ClientTCP(host, port);
+        Mouse mouse = new Mouse();
+        Board board = new Board(); //TODO: Por fazer RICARDO
+        Data data = new Data();
 
-        String response = receive();
-        switch(response) {
-            case "Logout#Success": break;
-            case "Logout#InvalidPassword": throw new Exceptions.InvalidPassword("Invalid password");
-            case "Logout#InvalidAccount":  throw new Exceptions.InvalidAccount("Invalid account");    
+        Thread screenThread = new Thread(new Screen(mouse, board, data)); //TODO: Por fazer RICARDO
+        Thread postmanThread = new Thread(new Postman(clientTCP, mouse, board, data));
+
+        screenThread.start();
+        postmanThread.start();
+    }
+
+    private int parsePort(String portStr) {
+        try {
+            return Integer.parseInt(portStr);
+        } catch (NumberFormatException e) {
+            System.err.println("Porto inválido: " + portStr);
+            System.exit(1);
+            return -1; // Nunca chega aqui
         }
     }
 
-    public void join(String username, String password) throws IOException, Exceptions.InvalidAccount, Exceptions.FullServer {
-        sb.append("Join#").append(username).append(" ").append(password);
-        send(sb.toString());
-        sb.setLength(0);
-
-        String response = receive();
-        switch (response) {
-            case "Join#Success": break;
-            case "Join#FullServer": throw new Exceptions.FullServer("Server is full");
-            case "Join#Exceptions.InvalidAccount": throw new Exceptions.InvalidAccount("Invalid account");
-        }
+    private void printUsageAndExit() {
+        System.out.println("Uso incorreto:");
+        System.out.println("Uso: Client [host] [port]");
+        System.exit(1);
     }
-
-    public void remove_account(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.InvalidAccount {
-        sb.append("remove_account#").append(username).append(" ").append(password);
-        send(sb.toString());
-        sb.setLength(0);
-
-        String response = receive();
-        switch (response) {
-            case "done": break;
-            case "invalid_account": throw new Exceptions.InvalidAccount("Invalid account.");
-            case "invalid_password": throw new Exceptions.InvalidPassword("Invalid password.");
-        }
-    }
-
-    // Pedido para ver quem está online
-    public Set<String> online() throws IOException {
-        sb.append("online#");
-        send(sb.toString());
-        sb.setLength(0);
-
-        String response = receive();
-        String[] playerStrings = response.split(" ");
-        Set<String> users = new TreeSet<>();
-        for(String user : playerStrings) users.add(user);
-        return users;   
-    }
-
-    // Player Info:
-
-    public String getInfo(String username) throws IOException {
-        sb.append("info#").append(username);
-        send(sb.toString());
-        sb.setLength(0);
-
-        return receive();
-    }
-
-    // Envia a posicao atual do rato no ecra para o servidor:
-
-    public void mouse(Tuple<Float, Float> pos){
-        sb.append("mouse#");
-        sb.append(pos.toString());
-        this.send(sb.toString());
-        sb.setLength(0);
-    }
-
-    public void mouse(String mouse) {
-        sb.append("mouse#");
-        sb.append(mouse);
-        this.send(sb.toString());
-        sb.setLength(0);
-    }
-
 }
