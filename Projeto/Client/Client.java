@@ -94,6 +94,7 @@ public class Client {
         }
     }
 
+    // Pedido para ver quem está online
     public Set<String> online() throws IOException {
         sb.append("online#");
         send(sb.toString());
@@ -115,4 +116,21 @@ public class Client {
 
         return receive();
     }
+
+    // Envia a posicao atual do rato no ecra para o servidor:
+
+    public void mouse(Tuple<Float, Float> pos){
+        sb.append("mouse#");
+        sb.append(pos.toString());
+        this.send(sb.toString());
+        sb.setLength(0);
+    }
+
+    public void mouse(String mouse) {
+        sb.append("mouse#");
+        sb.append(mouse);
+        this.send(sb.toString());
+        sb.setLength(0);
+    }
+
 }
