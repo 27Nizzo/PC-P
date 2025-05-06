@@ -1,3 +1,1 @@
-Bio.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}
 Nizzo.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}
-Pietro.#{logged_in => true,losses => 0,nvl => 1,password => "123",wins => 0}
