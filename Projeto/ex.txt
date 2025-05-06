@@ -1,33 +1,55 @@
-1> c(readFile).
+-> c(readFile).
 {ok,readFile}
-2> c(account_server).
+-> c(account_server).
 {ok,account_server}
-3> account_server:start().
+-> account_server:start().
 {ok,started}
-4> account_server:login().
+-> account_server:login().
 ** exception error: undefined function account_server:login/0
-5> account_server:login({"Nizzo","nizzopw"}).
+-> account_server:login({"Nizzo","nizzopw"}).
 {ok,logged_in}
-6> account_server:login({"Bio","biopw"}).    
+-> account_server:login({"Bio","biopw"}).    
 {ok,logged_in}
-7> account_server:login({"Pietro","pietropw"}).
+-> account_server:login({"Pietro","pietropw"}).
 {ok,logged_in}
-8> account_server:login({"Rmv","rmvpw"}).      
+-> account_server:login({"Rmv","rmvpw"}).      
 {ok,logged_in}
-9> c(matchmaker).                        
+-> c(matchmaker).                        
 {ok,matchmaker}
-10> matchmaker:start(). 
+-> matchmaker:start(). 
 true
-11> matchmaker:manual_start_duel("Rmv", "Pietro").
+-> matchmaker:manual_start_duel("Rmv", "Pietro").
 {ok,started}
-12> matchmaker:manual_start_duel("Nizzo", "Bio").   
+-> matchmaker:manual_start_duel("Nizzo", "Bio").   
 {ok,started}
-13> matchmaker:end_duel("Nizzo").
+-> matchmaker:end_duel("Nizzo").
 Duelo entre Nizzo e Bio terminado por Nizzo
 {ok,ended}
-14> matchmaker:end_duel("Pietro").
+-> matchmaker:end_duel("Pietro").
 Duelo entre Rmv e Pietro terminado por Pietro
 {ok,ended}
 
+!RESOLVER!:
+-> account_server:get_stats("Nizzo").
+{
+ Username: Nizzo,
+ Nvl: nvl 1,
+ Wins: 0,
+ Losses: 0,
+ WinP: 0%
+}
+
+-> account_server:update_stats("Nizzo",win).
+{Nizzo stats updated: +1 win}
+
+-> account_server:update_stats("Nizzo", lost).
+{Nizzo stats updated: -1 win}
+
+-> account_server:logout({"Nizzo", "123"}).
+{Nizzo logged out...}
+
+-> account_server:remove_account().
+{Account DISIMTEGRATED!}
 
 matchmaker:enter_queue("Nizzo") , matchmaker:enter_queue("Bio").
+
