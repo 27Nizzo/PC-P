@@ -1,0 +1,77 @@
+-module(account_server_tests).
+
+-include_lib("eunit/include/eunit.hrl").
+
+start_test() ->
+    % Tenta iniciar o servidor
+    account_server:start(),
+    % Garante que o processo foi registado
+    ?assertEqual(true, is_pid(whereis(account_server))).
+
+create_and_auth_test() ->
+    User = "tester",
+    Pass = "pass123",
+
+    % Remove o utilizador se existir
+    account_server:remove_account({User, Pass}),
+
+    % Cria conta
+    {ok, created} = account_server:create_account(User, Pass),
+
+    % Testa login válido
+    {ok, logged_in} = account_server:login({User, Pass}),
+
+    % Testa autenticação
+    true = account_server:auth({User, Pass}),
+
+    % Testa se está autenticado
+    true = account_server:is_logged_in(User),
+
+    % Logout
+    {ok, logged_out} = account_server:logout({User, Pass}),
+
+    % Testa se está mesmo offline
+    false = account_server:is_logged_in(User),
+
+    ok.
+
+update_stats_test() ->
+    User = "tester",
+    Pass = "pass123",
+
+    % Garante que está logado
+    {ok, logged_in} = account_server:login({User, Pass}),
+
+    % Atualiza com vitória
+    {ok, updated} = account_server:update_stats(User, win),
+
+    % Atualiza com derrota
+    {ok, updated} = account_server:update_stats(User, loss),
+
+    % Vai buscar estatísticas
+    {ok, Stats} = account_server:get_stats(User),
+
+    % Verifica se campos existem
+    ?assert(maps:is_key(nvl, Stats)),
+    ?assert(maps:is_key(wins, Stats)),
+    ?assert(maps:is_key(losses, Stats)),
+
+    % Logout no fim
+    {ok, logged_out} = account_server:logout({User, Pass}),
+
+    ok.
+
+leaderboard_test() ->
+    {ok, Leaderboard} = account_server:get_leaderboard(),
+    ?assert(is_list(Leaderboard)),
+    [Entry | _] = Leaderboard,
+    ?assert(maps:is_key(username, Entry)),
+    ?assert(maps:is_key(nvl, Entry)),
+    ?assert(maps:is_key(wins, Entry)),
+    ?assert(maps:is_key(losses, Entry)),
+    ok.
+
+erl
+> c(account_server).
+> c(account_server_tests).
+> account_server_tests:test().

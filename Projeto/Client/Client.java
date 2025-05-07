@@ -27,10 +27,10 @@ public class Client {
         Data data = new Data();
 
         Thread screenThread = new Thread(new Screen(mouse, board, data)); //TODO: Por fazer RICARDO
-        Thread postmanThread = new Thread(new Postman(clientTCP, mouse, board, data));
+        Thread courierThread = new Thread(new Courier(clientTCP, mouse, board, data));
 
         screenThread.start();
-        postmanThread.start();
+        courierThread.start();
     }
 
     private int parsePort(String portStr) {

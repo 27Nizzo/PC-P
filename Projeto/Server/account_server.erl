@@ -4,8 +4,18 @@
     start/0, create_account/2, is_logged_in/1, 
     online/0, remove_account/1,
     rpc/1, login/1, logout/1, auth/1,
-    loop/1, get_stats/1, update_stats/2
+    loop/1, get_stats/1, update_stats/2, get_leaderboard/0
 ]).
+
+-record(player, {
+    username = undefined,
+    nvl = 1,
+    wins = 0,
+    losses = 0,
+    logged_in = false,
+    current_streak = 0,
+    is_in_win_streak = true
+}).
 
 % Interface RPC
 rpc(Request) ->
@@ -40,7 +50,15 @@ loop(Users) ->
                     Pid ! {error, invalid_password},
                     loop(Users);
                 false ->
-                    Info = #{password => Pass, nvl => 1, wins => 0, losses => 0, logged_in => false},
+                    Info = #{
+                        password => Pass,
+                        nvl => 1,
+                        wins => 0,
+                        losses => 0,
+                        logged_in => false,
+                        current_streak => 0,
+                        is_in_win_streak => true
+                    },
                     NewUsers = maps:put(User, Info, Users),
                     readFile:writeAccounts(NewUsers),
                     Pid ! {ok, created},
@@ -135,10 +153,19 @@ loop(Users) ->
                 undefined ->
                     Pid ! {error, not_found},
                     loop(Users);
-                Info = #{password := Pass, nvl := Nvl, wins := Wins, losses := Losses, logged_in := LoggedIn} -> % LoggedIn and Pass unused
+                Info = #{nvl := Nvl, wins := Wins, losses := Losses} ->
                     NewInfo = case Result of
-                        win -> Info#{nvl => Nvl + 1, wins => Wins + 1};
-                        loss -> Info#{losses => Losses + 1};
+                        win -> Info#{
+                            nvl => Nvl + 1,
+                            wins => Wins + 1,
+                            current_streak => maps:get(current_streak, Info, 0) + 1,
+                            is_in_win_streak => true
+                        };
+                        loss -> Info#{
+                            losses => Losses + 1,
+                            current_streak => 0,
+                            is_in_win_streak => false
+                        };
                         _ -> Info
                     end,
                     NewUsers = maps:put(User, NewInfo, Users),
@@ -146,6 +173,13 @@ loop(Users) ->
                     Pid ! {ok, updated},
                     loop(NewUsers)
             end;
+
+        {Pid, get_leaderboard} ->
+            List = maps:to_list(Users),
+            Sorted = lists:sort(fun compare_users/2, List),
+            Formatted = [format_user(U, Info) || {U, Info} <- Sorted],
+            Pid ! {ok, Formatted},
+            loop(Users);
 
         Unknown ->
             io:format("Mensagem desconhecida: ~p~n", [Unknown]),
@@ -162,3 +196,28 @@ is_logged_in(User) -> rpc({is_logged_in, User}).
 online() -> rpc(online).
 get_stats(User) -> rpc({get_stats, User}).
 update_stats(User, Result) -> rpc({update_stats, User, Result}).
+get_leaderboard() -> rpc(get_leaderboard).
+
+compare_users({_, Info1}, {_, Info2}) ->
+    Nvl1 = maps:get(nvl, Info1, 0),
+    Nvl2 = maps:get(nvl, Info2, 0),
+    case Nvl1 > Nvl2 of
+        true -> true;
+        false when Nvl1 < Nvl2 -> false;
+        false ->
+            Streak1 = maps:get(current_streak, Info1, 0),
+            Streak2 = maps:get(current_streak, Info2, 0),
+            Win1 = maps:get(is_in_win_streak, Info1, true),
+            Win2 = maps:get(is_in_win_streak, Info2, true),
+            compare_streak(Streak1, Win1, Streak2, Win2)
+    end.
+
+compare_streak(S1, true, S2, false) -> true;
+compare_streak(S1, false, S2, true) -> false;
+compare_streak(S1, _, S2, _) -> S1 >= S2.
+
+format_user(User, Info) ->
+    #{username => User,
+      nvl => maps:get(nvl, Info, 1),
+      wins => maps:get(wins, Info, 0),
+      losses => maps:get(losses, Info, 0)}.
