@@ -9,21 +9,6 @@ import processing.core.PFont;
 import java.util.ArrayList;
 import java.util.List;
 
-class Button {
-    String label;
-    int x, y, width, height;
-    boolean isHighlighted;
-
-    Button(String label, int x, int y, int width, int height) {
-        this.label = label;
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.isHighlighted = false;
-    }
-}
-
 // Renamed class from App to ClientGUI
 public class ClientGUI extends PApplet {
   Client client;

@@ -38,5 +38,5 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = 'pt.uminho.pc.App'
+    mainClass = 'pt.uminho.pc.ClientGUI'
 }
