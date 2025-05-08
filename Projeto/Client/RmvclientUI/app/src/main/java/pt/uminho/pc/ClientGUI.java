@@ -9,7 +9,15 @@ import processing.core.PFont;
 import java.util.ArrayList;
 import java.util.List;
 
-// Renamed class from App to ClientGUI
+enum State {
+    MENU,
+    LOGIN,
+    REGISTER,
+    UNREGISTER,
+    PLAY,
+    ENTER_CREDENTIALS
+}
+
 public class ClientGUI extends PApplet {
   ClientTCP client;
   String username = "";
@@ -21,8 +29,7 @@ public class ClientGUI extends PApplet {
   int WindowWidth = 600;
   int WindowHeight = 400;
 
-  boolean isEnteringCredentials = false;
-  String currentAction = "";
+    State currentState = State.MENU;
 
   List<Button> buttons;
   Button submitButton;
@@ -48,16 +55,35 @@ public class ClientGUI extends PApplet {
     submitButton = new Button("Submit", 75, 200, 100, 30);
   }
 
-  public void draw() {
-    background(200);
+    public void draw() {
+        background(200);
+        switch (currentState) {
+            case MENU:
+                drawMenu();
+                break;
+            case ENTER_CREDENTIALS:
+                drawCredentialsInput();
+                break;
+            case PLAY:
+                drawPlayScreen();
+                break;
+            default:
+                fill(0);
+                text("Server Message: " + message, 20, 50);
+        }
+    }
 
-    if (isEnteringCredentials) {
-        // Draw credentials input screen
-        // Labels
+    private void drawMenu() {
+        for (Button button : buttons) {
+            drawButton(button);
+            button.isHighlighted = mouse.isMouseOver(button.x, button.y, button.width, button.height);
+        }
+    }
+
+    private void drawCredentialsInput() {
         fill(0);
         text("Username:", 80, 80);
         text("Password:", 80, 130);
-        // Username field box
         stroke(0);
         noFill();
         rect(200, 60, 200, 30);
@@ -81,100 +107,72 @@ public class ClientGUI extends PApplet {
         }
         stroke(0);
         drawButton(submitButton);
-    } else {
-        // Display messages from the server
-        fill(0);
-        text("Server Message: " + message, 20, 50);
-
-        for (Button button : buttons) {
-            drawButton(button);
-        }
-    }
-  }
-
-  public void mousePressed() {
-    if (isEnteringCredentials) {
-        // Focus input fields
-        if (mouse.isMouseOver(200, 60, 200, 30)) {
-            usernameActive = true; passwordActive = false; return;
-        }
-        if (mouse.isMouseOver(200, 110, 200, 30)) {
-            usernameActive = false; passwordActive = true; return;
-        }
-        if (mouse.isMouseOver(submitButton.x, submitButton.y, submitButton.width, submitButton.height)) {
-            sendCommand(currentAction + "\n" + username + "\n" + password);
-            isEnteringCredentials = false;
-            username = "";
-            password = "";
-            usernameActive = false;
-            passwordActive = false;
-        }
-    } else {
-        for (Button button : buttons) {
-            if (mouse.isMouseOver(button.x, button.y, button.width, button.height)) {
-                handleButtonClick(button.label);
-            }
-        }
-    }
-  }
-
-  public void mouseMoved() {
-    for (Button button : buttons) {
-        button.isHighlighted = mouse.isMouseOver(button.x, button.y, button.width, button.height);
-    }
-    if (isEnteringCredentials) {
         submitButton.isHighlighted = mouse.isMouseOver(submitButton.x, submitButton.y, submitButton.width, submitButton.height);
     }
-  }
 
-  public void keyPressed() {
-    if (isEnteringCredentials) {
-        if (key == BACKSPACE) {
-            if (passwordActive && password.length() > 0) {
-                password = password.substring(0, password.length() - 1);
-            } else if (usernameActive && username.length() > 0) {
-                username = username.substring(0, username.length() - 1);
-            }
-        } else if (key != ENTER && key != RETURN) {
-            if (usernameActive && username.length() < 20) {
-                username += key;
-            } else if (passwordActive && password.length() < 20) {
-                password += key;
-            }
-        }
-    } else {
-        if (key == BACKSPACE) {
-          if (username.length() > 0) {
-            username = username.substring(0, username.length() - 1);
-          } else if (password.length() > 0) {
-            password = password.substring(0, password.length() - 1);
-          }
-        } else if (key == TAB) {
-          // Switch between username and password input
-        } else if (key != ENTER && key != RETURN) {
-          if (key == ' ') return; // Ignore spaces
-          if (username.length() < 20) {
-            username += key;
-          } else if (password.length() < 20) {
-            password += key;
-          }
+    private void drawPlayScreen() {
+        fill(0);
+        text("Playing the game...", 20, 50);
+    }
+
+    public void mousePressed() {
+        switch (currentState) {
+            case MENU:
+                for (Button button : buttons) {
+                    if (mouse.isMouseOver(button.x, button.y, button.width, button.height)) {
+                        handleButtonClick(button.label);
+                    }
+                }
+                break;
+            case ENTER_CREDENTIALS:
+                if (mouse.isMouseOver(200, 60, 200, 30)) {
+                    usernameActive = true;
+                    passwordActive = false;
+                } else if (mouse.isMouseOver(200, 110, 200, 30)) {
+                    usernameActive = false;
+                    passwordActive = true;
+                } else if (mouse.isMouseOver(submitButton.x, submitButton.y, submitButton.width, submitButton.height)) {
+                    sendCommand(currentState.name() + "\n" + username + "\n" + password);
+                    currentState = State.MENU;
+                    username = "";
+                    password = "";
+                    usernameActive = false;
+                    passwordActive = false;
+                }
+                break;
         }
     }
-  }
 
-  private void handleButtonClick(String label) {
-    switch (label) {
-        case "LOGIN":
-        case "REGISTER":
-        case "UNREGISTER":
-            isEnteringCredentials = true;
-            currentAction = label;
-            break;
-        case "PLAY":
-            sendCommand("PLAY");
-            break;
+    public void keyPressed() {
+        if (currentState == State.ENTER_CREDENTIALS) {
+            if (key == BACKSPACE) {
+                if (passwordActive && !password.isEmpty()) {
+                    password = password.substring(0, password.length() - 1);
+                } else if (usernameActive && !username.isEmpty()) {
+                    username = username.substring(0, username.length() - 1);
+                }
+            } else if (key != ENTER && key != RETURN) {
+                if (usernameActive && username.length() < 20) {
+                    username += key;
+                } else if (passwordActive && password.length() < 20) {
+                    password += key;
+                }
+            }
+        }
     }
-  }
+
+    private void handleButtonClick(String label) {
+        switch (label) {
+            case "LOGIN":
+            case "REGISTER":
+            case "UNREGISTER":
+                currentState = State.ENTER_CREDENTIALS;
+                break;
+            case "PLAY":
+                currentState = State.PLAY;
+                break;
+        }
+    }
 
   private void drawButton(Button button) {
     if (button.isHighlighted) {
