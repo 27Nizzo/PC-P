@@ -31,9 +31,6 @@ public class ClientGUI extends PApplet {
 
     State currentState = State.MENU;
 
-    List<Button> buttons;
-    Button submitButton;
-
     boolean usernameActive = false;
     boolean passwordActive = false;
 
@@ -48,13 +45,6 @@ public class ClientGUI extends PApplet {
         client = new ClientTCP(this, "localhost", 1234);
         mouse = new Mouse(this);
         mouse.showCursor();
-
-        buttons = new ArrayList<>();
-        buttons.add(new Button("LOGIN", WindowWidth / 2 - 60, 100, 120, 30));
-        buttons.add(new Button("REGISTER", WindowWidth / 2 - 60, 150, 120, 30));
-        buttons.add(new Button("UNREGISTER", WindowWidth / 2 - 60, 200, 120, 30));
-        buttons.add(new Button("PLAY", WindowWidth / 2 - 60, 250, 120, 30));
-        submitButton = new Button("Submit", 75, 200, 100, 30);
     }
 
     public void draw() {
@@ -75,17 +65,31 @@ public class ClientGUI extends PApplet {
         }
     }
 
-    private void drawMenu() {
-        for (Button button : buttons) {
-            drawButton(button);
-            button.isHighlighted = mouse.isMouseOver(button.x, button.y, button.width, button.height);
+    boolean button(String label, int x, int y, int w, int h, State nextState) {
+        boolean over = mouse.isMouseOver(x, y, w, h);
+        fill(over ? 150 : 100);
+        rect(x, y, w, h);
+        fill(255);
+        text(label, x + 10, y + 20);
+        if (over && mousePressed) {
+            currentState = nextState;
+            return true;
         }
+        return false;
+    }
+
+    private void drawMenu() {
+        button("LOGIN", WindowWidth/2-60, 100, 120, 30, State.ENTER_CREDENTIALS);
+        button("REGISTER", WindowWidth/2-60, 150, 120, 30, State.ENTER_CREDENTIALS);
+        button("UNREGISTER", WindowWidth/2-60, 200, 120, 30, State.ENTER_CREDENTIALS);
+        button("PLAY", WindowWidth/2-60, 250, 120, 30, State.PLAY);
     }
 
     private void drawCredentialsInput() {
         fill(0);
         text("Username:", 80, 80);
         text("Password:", 80, 130);
+
         stroke(0);
         noFill();
         rect(200, 60, 200, 30);
@@ -96,6 +100,7 @@ public class ClientGUI extends PApplet {
             stroke(0);
             line(cx, 65, cx, 85);  // smaller blinking cursor height
         }
+
         // Password field box
         stroke(0);
         noFill();
@@ -107,9 +112,13 @@ public class ClientGUI extends PApplet {
             stroke(0);
             line(cx2, 115, cx2, 135);  // smaller blinking cursor height
         }
-        stroke(0);
-        drawButton(submitButton);
-        submitButton.isHighlighted = mouse.isMouseOver(submitButton.x, submitButton.y, submitButton.width, submitButton.height);
+
+        if (button("Submit", 75, 200, 100, 30, State.MENU)) {
+            sendCommand("ENTER_CREDENTIALS\n" + username + "\n" + password);
+            username = "";
+            password = "";
+            usernameActive = passwordActive = false;
+        }
     }
 
     private void drawPlayScreen() {
@@ -118,30 +127,14 @@ public class ClientGUI extends PApplet {
     }
 
     public void mousePressed() {
-        switch (currentState) {
-            case MENU:
-                for (Button button : buttons) {
-                    if (mouse.isMouseOver(button.x, button.y, button.width, button.height)) {
-                        handleButtonClick(button.label);
-                    }
-                }
-                break;
-            case ENTER_CREDENTIALS:
-                if (mouse.isMouseOver(200, 60, 200, 30)) {
-                    usernameActive = true;
-                    passwordActive = false;
-                } else if (mouse.isMouseOver(200, 110, 200, 30)) {
-                    usernameActive = false;
-                    passwordActive = true;
-                } else if (mouse.isMouseOver(submitButton.x, submitButton.y, submitButton.width, submitButton.height)) {
-                    sendCommand(currentState.name() + "\n" + username + "\n" + password);
-                    currentState = State.MENU;
-                    username = "";
-                    password = "";
-                    usernameActive = false;
-                    passwordActive = false;
-                }
-                break;
+        if (currentState == State.ENTER_CREDENTIALS) {
+            if (mouse.isMouseOver(200, 60, 200, 30)) {
+                usernameActive = true;
+                passwordActive = false;
+            } else if (mouse.isMouseOver(200, 110, 200, 30)) {
+                usernameActive = false;
+                passwordActive = true;
+            }
         }
     }
 
@@ -161,30 +154,6 @@ public class ClientGUI extends PApplet {
                 }
             }
         }
-    }
-
-    private void handleButtonClick(String label) {
-        switch (label) {
-            case "LOGIN":
-            case "REGISTER":
-            case "UNREGISTER":
-                currentState = State.ENTER_CREDENTIALS;
-                break;
-            case "PLAY":
-                currentState = State.PLAY;
-                break;
-        }
-    }
-
-    private void drawButton(Button button) {
-        if (button.isHighlighted) {
-            fill(150);
-        } else {
-            fill(100);
-        }
-        rect(button.x, button.y, button.width, button.height);
-        fill(255);
-        text(button.label, button.x + 10, button.y + 20);
     }
 
     private void sendCommand(String command) {
