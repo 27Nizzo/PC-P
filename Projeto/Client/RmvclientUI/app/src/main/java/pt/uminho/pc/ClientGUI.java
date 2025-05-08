@@ -11,7 +11,7 @@ import java.util.List;
 
 // Renamed class from App to ClientGUI
 public class ClientGUI extends PApplet {
-  Client client;
+  ClientTCP client;
   String username = "";
   String password = "";
   String message = "";
@@ -37,7 +37,7 @@ public class ClientGUI extends PApplet {
   public void setup() {
     font = createFont("Arial", 16, true);
     textFont(font);
-    client = new Client(this, "localhost", 1234);
+    client = new ClientTCP(this, "localhost", 1234);
     mouse = new Mouse(this);
     mouse.showCursor();
     buttons = new ArrayList<>();

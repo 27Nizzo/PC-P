@@ -1,6 +1,0 @@
-TODO PC:
-1- Resolver as seguintes funções:
-    - account_server:get_stats();
-    - account_server:update_stats();
-    - account_server:logout();
-    - account_server:remove_account();

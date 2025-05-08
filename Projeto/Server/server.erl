@@ -51,3 +51,6 @@ handle_message(Sock, {info, Username}) ->
 
 handle_message(Sock, _) ->
     client_session:reply(Sock, {error, "Comando inválido"}).
+% Registar o movimento no servidor
+
+handle_movement(Sock) -> 
