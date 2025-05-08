@@ -18,18 +18,18 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
   - Comunicação via sockets TCP
 
 - **Servidor (Erlang)**:
-  - Simula o mundo do jogo (dificil) 3º a fazer
-  - Garante autenticidade e lógica das interações (facil) 1º a fazer(a ser feito atualmente)
-  - Gera respostas que sincronizam o estado do jogo com os clientes (médio) 2º a fazer 
+  - Simula o mundo do jogo 
+  - Garante autenticidade e lógica das interações 
+  - Gera respostas que sincronizam o estado do jogo com os clientes 
 
 ## 🎮 Funcionalidades do Jogo
 
 ### 1. Autenticação e Gestão de Utilizadores
-- Registo com `username` e `password`
-- Login e verificação de credenciais
-- Remoção de conta
-- Ficheiro persistente para guardar dados (cliente auxiliar)
-- Jogadores começam no nível 1
+- Registo com `username` e `password` : CHECK
+- Login e verificação de credenciais : CHECK
+- Remoção de conta : CHECK
+- Ficheiro persistente para guardar dados (cliente auxiliar) : MAIS OU MENOS
+- Jogadores começam no nível 1 : CHECK
 
 ### 2. Progressão de Nível
 - Sobe de nível após ganhar `n` partidas consecutivas (nível n)
@@ -54,7 +54,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Direção definida pelo cursor do rato
 - Projéteis com velocidade fixa
 
-### 7. Modificadores (Power-ups)
+### 7. Modificadores (Power-ups) A FAZER
 - Aparecem aleatoriamente no mapa
 - Tipos:
   - **Verde**: aumenta velocidade do projétil (decresce com o tempo)

@@ -4,6 +4,8 @@
 -define(PORT, 1234).
 
 start() ->
+    player_state:start(),
+    modifiers:start(),
     {ok, LSock} = gen_tcp:listen(?PORT, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
     io:format("Servidor iniciado na porta ~p~n", [?PORT]),
     spawn(?MODULE, accept_loop, [LSock]).
