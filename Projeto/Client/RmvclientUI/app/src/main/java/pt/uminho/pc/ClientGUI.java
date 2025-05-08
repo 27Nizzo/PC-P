@@ -19,41 +19,43 @@ enum State {
 }
 
 public class ClientGUI extends PApplet {
-  ClientTCP client;
-  String username = "";
-  String password = "";
-  String message = "";
-  boolean loggedIn = false;
-  PFont font;
-  Mouse mouse;
-  int WindowWidth = 600;
-  int WindowHeight = 400;
+    ClientTCP client;
+    String username = "";
+    String password = "";
+    String message = "";
+    boolean loggedIn = false;
+    PFont font;
+    Mouse mouse;
+    int WindowWidth = 600;
+    int WindowHeight = 400;
 
     State currentState = State.MENU;
 
-  List<Button> buttons;
-  Button submitButton;
+    List<Button> buttons;
+    Button submitButton;
 
-  boolean usernameActive = false;
-  boolean passwordActive = false;
+    boolean usernameActive = false;
+    boolean passwordActive = false;
 
-  public void settings() {
-    size(WindowWidth, WindowHeight);
-  }
+    public void settings() {
+        size(WindowWidth, WindowHeight);
+    }
 
-  public void setup() {
-    font = createFont("Arial", 16, true);
-    textFont(font);
-    client = new ClientTCP(this, "localhost", 1234);
-    mouse = new Mouse(this);
-    mouse.showCursor();
-    buttons = new ArrayList<>();
-    buttons.add(new Button("LOGIN", WindowWidth / 2 - 60, 100, 120, 30));
-    buttons.add(new Button("REGISTER", WindowWidth / 2 - 60, 150, 120, 30));
-    buttons.add(new Button("UNREGISTER", WindowWidth / 2 - 60, 200, 120, 30));
-    buttons.add(new Button("PLAY", WindowWidth / 2 - 60, 250, 120, 30));
-    submitButton = new Button("Submit", 75, 200, 100, 30);
-  }
+    public void setup() {
+        font = createFont("Arial", 16, true);
+        textFont(font);
+
+        client = new ClientTCP(this, "localhost", 1234);
+        mouse = new Mouse(this);
+        mouse.showCursor();
+
+        buttons = new ArrayList<>();
+        buttons.add(new Button("LOGIN", WindowWidth / 2 - 60, 100, 120, 30));
+        buttons.add(new Button("REGISTER", WindowWidth / 2 - 60, 150, 120, 30));
+        buttons.add(new Button("UNREGISTER", WindowWidth / 2 - 60, 200, 120, 30));
+        buttons.add(new Button("PLAY", WindowWidth / 2 - 60, 250, 120, 30));
+        submitButton = new Button("Submit", 75, 200, 100, 30);
+    }
 
     public void draw() {
         background(200);
@@ -174,24 +176,24 @@ public class ClientGUI extends PApplet {
         }
     }
 
-  private void drawButton(Button button) {
-    if (button.isHighlighted) {
-      fill(150);
-    } else {
-      fill(100);
+    private void drawButton(Button button) {
+        if (button.isHighlighted) {
+            fill(150);
+        } else {
+            fill(100);
+        }
+        rect(button.x, button.y, button.width, button.height);
+        fill(255);
+        text(button.label, button.x + 10, button.y + 20);
     }
-    rect(button.x, button.y, button.width, button.height);
-    fill(255);
-    text(button.label, button.x + 10, button.y + 20);
-  }
 
-  private void sendCommand(String command) {
-    if (client != null) {
-      client.write(command + "\n");
+    private void sendCommand(String command) {
+        if (client != null) {
+            client.write(command + "\n");
+        }
     }
-  }
 
-  public static void main(String... args) {
-    PApplet.main(ClientGUI.class);
-  }
+    public static void main(String... args) {
+        PApplet.main(ClientGUI.class);
+    }
 }
