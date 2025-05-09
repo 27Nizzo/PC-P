@@ -53,6 +53,48 @@ handle_message(Sock, {info, Username}) ->
 
 handle_message(Sock, _) ->
     client_session:reply(Sock, {error, "Comando inválido"}).
-% Registar o movimento no servidor
 
-handle_movement(Sock) -> 
+% Registar o movimentp
+handle_movement(Sock, {move, Username, Direction}) ->
+    case player_data:get_positon(Username) of
+        {ok, {X, Y}} -> 
+            NewPos = case Direction of
+                up -> {X, Y + 1},
+                down -> {X, Y - 1},
+                left -> {X - 1, Y},
+                right -> {X + 1, Y}
+            end,
+            player_data:set_position(Username, NewPos),
+            client_session:reply(Sock, {moved, NewPos});
+        not_found ->
+            client_session:reply(Sock, {error, user_not_found})
+    end.
+
+% Handle para apanhar o Modifier
+
+handle_message(Sock, {pickup_mod, Username}) ->
+    case player_data:get_positon(Username) of
+        {ok, Pos} -> 
+            case modifiers: get_at(Pos) of
+                {ok, Type} ->
+                    modifiers:remove(Pos),
+                    apply_mod(Username, Type),
+                    client_session:reply(Sock, {mod_active, Type});
+                    not_found -> 
+                        client_session:reply(Sock, {no_powerup})
+            end;
+        not_found ->
+            client_session:reply(Sock, {error, user_not_found})
+    end.
+
+mod_active(Username, green) ->
+    player_data:set_effect(Username, projectile_speed, 2.0);
+
+mod_active(Username, orage) ->
+    player_data:set_effect(Username, projectile_speed, 0.5);
+
+mod_active(Username, blue) ->
+    player_data:set_effect(Username, projectile_speed, 0.5);
+
+mod_active(Username, red) ->
+    player_data:set_effect(Username, projectile_speed, 2.0);
