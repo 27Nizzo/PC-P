@@ -1,4 +1,4 @@
-f-module(account_server).
+-module(account_server).
 
 -export([
     start/0, create_account/2, is_logged_in/1, 
@@ -196,8 +196,13 @@ is_logged_in(User) -> rpc({is_logged_in, User}).
 online() -> rpc(online).
 get_stats(User) -> rpc({get_stats, User}).
 update_stats(User, Result) -> rpc({update_stats, User, Result}).
-get_leaderboard() -> rpc(get_leaderboard).
-
+%get_leaderboard() -> rpc(get_leaderboard).
+% TOP 10?
+get_leaderboard() ->
+    case rpc(get_leaderboard) of
+        {ok, Leaderboard} -> lists:sublist(Leaderboard, 10);
+        Error -> Error
+    end.
 compare_users({_, Info1}, {_, Info2}) ->
     Nvl1 = maps:get(nvl, Info1, 0),
     Nvl2 = maps:get(nvl, Info2, 0),

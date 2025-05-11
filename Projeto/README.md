@@ -54,7 +54,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Direção definida pelo cursor do rato
 - Projéteis com velocidade fixa
 
-### 7. Modificadores (Power-ups) A FAZER
+### 7. Modificadores (Power-ups) Done no Server falta conectar ao cliente
 - Aparecem aleatoriamente no mapa
 - Tipos:
   - **Verde**: aumenta velocidade do projétil (decresce com o tempo)
@@ -75,7 +75,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Jogador com maior pontuação vence
 - Empates não afetam níveis nem top 10
 
-### 10. Top 10 Jogadores
+### 10. Top 10 Jogadores LEADERBOARD FEITA NO SERVER FAZER A LIGAÇÃO COM O CLIENTE
 - Ordenado por nível e sequência atual de vitórias/derrotas
 
 ## 🗂️ Entrega

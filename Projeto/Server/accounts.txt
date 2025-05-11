@@ -1,2 +1,24 @@
-Nizzo.#{current_streak => 1,is_in_win_streak => true,logged_in => true,losses => 0,
-  nvl => 2,password => "123",wins => 1}
+Nizzo.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo1.#{wins => 0,nvl => 1,losses => 0,logged_in => false,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo10.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo11.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo2.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo3.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo4.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo5.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo6.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo7.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
+Nizzo8.#{wins => 1,nvl => 2,losses => 0,logged_in => true,current_streak => 1,
+  is_in_win_streak => true,password => "123"}
+Nizzo9.#{wins => 0,nvl => 1,losses => 0,logged_in => true,current_streak => 0,
+  is_in_win_streak => true,password => "123"}
