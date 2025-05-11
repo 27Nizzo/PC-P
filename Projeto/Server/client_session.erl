@@ -1,26 +1,18 @@
 -module(client_session).
--export([start/1]).
+-export([start/2, reply/2]).
 
-start(Socket) ->
-    loop(Socket).
+start(Sock, Handler) ->
+    spawn(fun() -> loop(Sock, Handler) end).
 
-loop(Socket) ->
-    case gen_tcp:recv(Socket, 0) of
-        {ok, Bin} ->
-            Line = binary_to_list(Bin),
-            Response = handle_command(Line),
-            gen_tcp:send(Socket, Response ++ "\n"),
-            loop(Socket);
+reply(Sock, Msg) ->
+    gen_tcp:send(Sock, term_to_binary(Msg)).
+
+loop(Sock, Handler) ->
+    case gen_tcp:recv(Sock, 0) of
+        {ok, Data} ->
+            Msg = binary_to_term(Data),
+            Handler(Sock, Msg),
+            loop(Sock, Handler);
         {error, closed} ->
-            ok
-    end.
-
-handle_command(Line) ->
-    case string:tokens(Line, " ") of
-        ["LOGIN", User, Pass] ->
-            case account_server:auth({User, Pass}) of
-                {ok, created} -> "OK";
-                _ -> "ERROR"
-            end;
-        _ -> "ERROR"
+            io:format("Client disconnected~n")
     end.

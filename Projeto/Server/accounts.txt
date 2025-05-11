@@ -1,2 +1,2 @@
-Nizzo.#{current_streak => 1,is_in_win_streak => true,logged_in => true,losses => 0,
-  nvl => 2,password => "123",wins => 1}
+Nizzo.#{wins => 3,nvl => 2,losses => 2,logged_in => true,current_streak => 1,
+  is_in_win_streak => true,password => "123",loss_streak => 0}
