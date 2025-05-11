@@ -6,7 +6,7 @@ start() ->
     ets:new(mods, [name_table, public, set]).
 
 spawn_mod() ->
-    Typer = [green, orange, blue, red],
+    Types = [green, orange, blue, red],
     RandomType = lists:nth(rand:uniform(length(Types)), Types),
     Pos = {rand:uniform(20), rand:uniform(20)},
     ets:insert(mods, {Pos, RandomType}),

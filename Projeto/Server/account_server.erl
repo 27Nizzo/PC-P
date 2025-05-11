@@ -155,17 +155,35 @@ loop(Users) ->
                     loop(Users);
                 Info = #{nvl := Nvl, wins := Wins, losses := Losses} ->
                     NewInfo = case Result of
-                        win -> Info#{
-                            nvl => Nvl + 1,
-                            wins => Wins + 1,
-                            current_streak => maps:get(current_streak, Info, 0) + 1,
-                            is_in_win_streak => true
-                        };
-                        loss -> Info#{
-                            losses => Losses + 1,
-                            current_streak => 0,
-                            is_in_win_streak => false
-                        };
+                        win -> 
+                            CurrentStreak = maps:get(current_streak, Info, 0) + 1,
+                            % Level up if won Nvl consecutive games - Nvl 1 + one win = Nvl 2 + two concecutive wins = Nvl 3 = three concecutive wins(...)    
+                            NewNvl = case CurrentStreak >= Nvl of
+                                true -> Nvl + 1;
+                                false -> Nvl
+                            end,
+                            Info#{
+                                nvl => NewNvl,
+                                wins => Wins + 1,
+                                current_streak => CurrentStreak,
+                                is_in_win_streak => true,
+                                loss_streak => 0
+                            };
+                        loss -> 
+                            LossStreak = maps:get(loss_streak, Info, 0) + 1,
+                            RequiredLosses = ceil(Nvl/2),
+                            % Level down if lost ceil(Nvl/2) consecutive games
+                            NewNvl = case LossStreak >= RequiredLosses of
+                                true -> max(1, Nvl - 1);
+                                false -> Nvl
+                            end,
+                            Info#{
+                                nvl => NewNvl,
+                                losses => Losses + 1,
+                                current_streak => 0,
+                                is_in_win_streak => false,
+                                loss_streak => LossStreak
+                            };
                         _ -> Info
                     end,
                     NewUsers = maps:put(User, NewInfo, Users),
