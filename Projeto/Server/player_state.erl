@@ -1,5 +1,5 @@
 -module(player_state).
--export([start/0, set_position/2, get_position/1, set_effect/3, get_effects/1, end_effects/1]).
+-export([start/0, set_position/2, get_position/1, set_effect/3, get_effects/1, end_effects/1, get_velocity/2, set_velocity/2]).
 
 start() ->
     ets:new(player_pos, [named_table, public, set]),  
@@ -29,3 +29,7 @@ get_effects(Username) ->
 
 end_effects(Username) ->
     ets:delete(player_effects, Username).
+
+get_velocity(Vx,Vy) -> {ok, {Vx, Vy}}.
+set_velocity(Username, {Vx, Vy}) ->
+    ets:insert(player_pos, {Username, {Vx, Vy}}). 

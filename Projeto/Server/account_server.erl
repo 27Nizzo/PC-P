@@ -214,8 +214,6 @@ is_logged_in(User) -> rpc({is_logged_in, User}).
 online() -> rpc(online).
 get_stats(User) -> rpc({get_stats, User}).
 update_stats(User, Result) -> rpc({update_stats, User, Result}).
-%get_leaderboard() -> rpc(get_leaderboard).
-% TOP 10?
 get_leaderboard() ->
     case rpc(get_leaderboard) of
         {ok, Leaderboard} -> lists:sublist(Leaderboard, 10);

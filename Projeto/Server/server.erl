@@ -1,6 +1,6 @@
-
 -module(server).
 -export([start/0, accept_loop/1, handle_client/1]).
+
 -define(PORT, 1234).
 
 start() ->
@@ -53,17 +53,36 @@ handle_message(Sock, {info, Username}) ->
     end;
 
 handle_message(Sock, {move, Username, Direction}) ->
-    case player_data:get_position(Username) of
-        {ok, {X, Y}} -> 
-            NewPos = case Direction of
-                up -> {X, Y + 1};
-                down -> {X, Y - 1};
-                left -> {X - 1, Y};
-                right -> {X + 1, Y}
+    case {player_data:get_position(Username), player_data:get_velocity(Username)} of
+        {{ok, {X, Y}}, {ok, {Vx, Vy}}} ->
+            Acceleration = 0.2,
+            MaxSpeed = 2.0,
+
+            {Ax, Ay} = case Direction of
+                up -> {0.0, Acceleration};
+                down -> {0.0, -Acceleration};
+                left -> {-Acceleration, 0.0};
+                right -> {Acceleration, 0.0}
             end,
-            player_data:set_position(Username, NewPos),
-            client_session:reply(Sock, {moved, NewPos});
-        {error, not_found} ->
+
+            NVx0 = Vx + Ax,
+            NVy0 = Vy + Ay,
+
+            Speed = math:sqrt(NVx0 * NVx0 + NVy0 * NVy0),
+
+            Factor = if Speed > MaxSpeed -> MaxSpeed / Speed; true -> 1.0 end,
+
+            NVx = NVx0 * Factor,
+            NVy = NVy0 * Factor,
+
+            Nx = X + NVx,
+            Ny = Y + NVy,
+
+            player_data:set_velocity(Username, {NVx, NVy}),
+            player_data:set_position(Username, {Nx, Ny}),
+
+            client_session:reply(Sock, {moved, {Nx, Ny}, {NVx, NVy}});
+        _ ->
             client_session:reply(Sock, {error, user_not_found})
     end;
 
