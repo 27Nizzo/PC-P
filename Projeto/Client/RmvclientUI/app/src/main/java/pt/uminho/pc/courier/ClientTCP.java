@@ -1,4 +1,6 @@
-package Client;
+package pt.uminho.pc.courier;
+
+import pt.uminho.pc.components.Tuple;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -131,6 +133,13 @@ public class ClientTCP {
         sb.append(mouse);
         this.send(sb.toString());
         sb.setLength(0);
+    }
+
+    public boolean enter_queue() throws IOException {
+        // Minimal stub
+        send("joinQueue");
+        String response = receive();
+        return response != null && response.startsWith("joinQueueOK");
     }
 
 }

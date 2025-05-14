@@ -1,4 +1,4 @@
-package Client;
+package pt.uminho.pc.courier;
 
 public class Exceptions {
     public static class InvalidPassword extends Exception {

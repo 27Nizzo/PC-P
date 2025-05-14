@@ -1,23 +1,17 @@
-package Client;
-import java.util.Set;
+package pt.uminho.pc.courier;
 import java.util.concurrent.locks.*;
-
-enum Response {
-    NOTHING,
-    ERROR,
-    SWITCH,
-    DONE,
-}
 
 public class Data {
     public Lock lock = new ReentrantLock();
     public Condition waitPostman = lock.newCondition();
     public Condition waitScreen = lock.newCondition();
-    public State option; //! states para as opções fazer dps RICARDO
+    public String option; 
+    public boolean enter_queue;
 
-    public  Response response = Response.NOTHING;
+    public Response response = Response.NOTHING;
 
     public String username = "";
     public String password = "";
     // ??leaderboard??
 }
+

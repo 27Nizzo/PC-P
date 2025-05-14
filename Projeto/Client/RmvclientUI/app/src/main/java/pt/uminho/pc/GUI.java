@@ -4,28 +4,58 @@
 package pt.uminho.pc;
 
 import processing.core.PApplet;
-import processing.net.Client;
 import processing.core.PFont;
-import java.util.ArrayList;
-import java.util.List;
+import pt.uminho.pc.components.Board;
+import pt.uminho.pc.components.Mouse;
+import pt.uminho.pc.courier.ClientTCP;
+import pt.uminho.pc.courier.Courier;
+import pt.uminho.pc.courier.Data;
+import pt.uminho.pc.courier.Exceptions;
 
-enum State {
-    MENU,
-    LOGIN,
-    REGISTER,
-    UNREGISTER,
-    PLAY,
-    ENTER_CREDENTIALS
-}
+import java.io.IOException;
 
-public class ClientGUI extends PApplet {
+public class GUI extends PApplet {
+    private static String HOST;
+    private static int PORT;
+
+    public static void main(String[] args) {
+        if (args.length < 2) {
+            printUsageAndExit();
+        }
+
+        HOST = args[0];
+        PORT = parsePort(args[1]);
+
+        PApplet.main(GUI.class);
+    }
+
+    private static int parsePort(String portStr) {
+        try {
+            return Integer.parseInt(portStr);
+        } catch (NumberFormatException e) {
+            System.err.println("Porto inválido: " + portStr);
+            System.exit(1);
+            return -1; // Nunca chega aqui
+        }
+    }
+
+    private static void printUsageAndExit() {
+        System.out.println("Uso incorreto:");
+        System.out.println("Uso: Client [host] [port]");
+        System.exit(1);
+    }
+
+    Mouse mouse;
+    Board board;
+    Data data;
+
     ClientTCP client;
+
     String username = "";
     String password = "";
     String message = "";
     boolean loggedIn = false;
     PFont font;
-    Mouse mouse;
     int WindowWidth = 600;
     int WindowHeight = 400;
 
@@ -34,21 +64,34 @@ public class ClientGUI extends PApplet {
     boolean usernameActive = false;
     boolean passwordActive = false;
 
+    private String errorMessage = "";
+    private String stateBeforeError = "";
+
     public void settings() {
         size(WindowWidth, WindowHeight);
     }
 
     public void setup() {
-        font = createFont("Arial", 16, true);
-        textFont(font);
+        this.mouse = new Mouse(this);
+        this.board = new Board();
+        this.data = new Data();
 
-        client = new ClientTCP(this, "localhost", 1234);
-        mouse = new Mouse(this);
+        this.client = null;
+        try {
+            client = new ClientTCP(HOST, PORT);
+        } catch (IOException e) {
+            showError(e.getMessage());
+        }
+
+        Thread courierThread = new Thread(new Courier(client, mouse, board, data));
+        courierThread.start();
+
         mouse.showCursor();
     }
 
     public void draw() {
         background(200);
+
         switch (currentState) {
             case MENU:
                 drawMenu();
@@ -59,10 +102,42 @@ public class ClientGUI extends PApplet {
             case PLAY:
                 drawPlayScreen();
                 break;
+            case ERROR:
+                drawErrorScreen();
+                break;
             default:
                 fill(0);
                 text("Server Message: " + message, 20, 50);
         }
+    }
+
+    private void showError(String message) {
+        errorMessage = message;
+        stateBeforeError = currentState.toString();
+        currentState = State.ERROR;
+    }
+
+    private void drawErrorScreen() {
+        // Draw full screen background first
+        fill(200);
+        rect(0, 0, width, height);
+        
+        // Draw error popup
+        fill(240, 20, 20);
+        rect(width/2 - 150, height/2 - 100, 300, 200);
+        
+        // Error message
+        fill(255);
+        textAlign(CENTER, CENTER);
+        text("ERROR", width/2, height/2 - 70);
+        textAlign(CENTER, CENTER);
+        text(errorMessage, width/2, height/2);
+
+        // Disable mouse
+        mouse.hideCursor();
+        
+        // Reset text alignment
+        textAlign(LEFT, BASELINE);
     }
 
     boolean button(String label, int x, int y, int w, int h, State nextState) {
@@ -71,6 +146,7 @@ public class ClientGUI extends PApplet {
         rect(x, y, w, h);
         fill(255);
         text(label, x + 10, y + 20);
+
         if (over && mousePressed) {
             currentState = nextState;
             return true;
@@ -114,7 +190,16 @@ public class ClientGUI extends PApplet {
         }
 
         if (button("Submit", 75, 200, 100, 30, State.MENU)) {
-            sendCommand("ENTER_CREDENTIALS\n" + username + "\n" + password);
+            try {
+                this.client.login(username, password);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (Exceptions.InvalidPassword e) {
+                throw new RuntimeException(e);
+            } catch (Exceptions.InvalidAccount e) {
+                throw new RuntimeException(e);
+            }
+
             username = "";
             password = "";
             usernameActive = passwordActive = false;
@@ -135,6 +220,12 @@ public class ClientGUI extends PApplet {
                 usernameActive = false;
                 passwordActive = true;
             }
+        } else if (currentState == State.ERROR) {
+            // Check if OK button is clicked
+            if (mouseX > width/2 - 40 && mouseX < width/2 + 40 && 
+                mouseY > height/2 + 50 && mouseY < height/2 + 80) {
+                currentState = State.valueOf(stateBeforeError);
+            }
         }
     }
 
@@ -154,15 +245,5 @@ public class ClientGUI extends PApplet {
                 }
             }
         }
-    }
-
-    private void sendCommand(String command) {
-        if (client != null) {
-            client.write(command + "\n");
-        }
-    }
-
-    public static void main(String... args) {
-        PApplet.main(ClientGUI.class);
     }
 }
