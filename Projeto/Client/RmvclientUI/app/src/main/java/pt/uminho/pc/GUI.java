@@ -56,8 +56,8 @@ public class GUI extends PApplet {
     String message = "";
     boolean loggedIn = false;
     PFont font;
-    int WindowWidth = 600;
-    int WindowHeight = 400;
+    int WindowWidth = 800;
+    int WindowHeight = 600;
 
     State currentState = State.MENU;
 
@@ -73,18 +73,18 @@ public class GUI extends PApplet {
 
     public void setup() {
         this.mouse = new Mouse(this);
-        this.board = new Board();
+        this.board = new Board(this);
         this.data = new Data();
 
-        this.client = null;
-        try {
-            client = new ClientTCP(HOST, PORT);
-        } catch (IOException e) {
-            showError(e.getMessage());
-        }
-
-        Thread courierThread = new Thread(new Courier(client, mouse, board, data));
-        courierThread.start();
+//        this.client = null;
+//        try {
+//            client = new ClientTCP(HOST, PORT);
+//        } catch (IOException e) {
+//            showError(e.getMessage());
+//        }
+//
+//        Thread courierThread = new Thread(new Courier(client, mouse, board, data));
+//        courierThread.start();
 
         mouse.showCursor();
     }
@@ -207,8 +207,7 @@ public class GUI extends PApplet {
     }
 
     private void drawPlayScreen() {
-        fill(0);
-        text("Playing the game...", 20, 50);
+        board.drawBoard();
     }
 
     public void mousePressed() {
