@@ -50,7 +50,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Aceleração progressiva com inércia
 - Velocidade máxima predefinida
 
-# TODO
+# Done
 ### 6. Projéteis
 - Cada jogador pode disparar periodicamente
 - Direção definida pelo cursor do rato
@@ -65,8 +65,8 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
   - **Vermelho**: aumenta tempo entre disparos
 - Ao serem apanhados, aplicam efeito ao jogador
 
-# TODO
-### 8. Colisões
+# Done
+### 8. Colisões 
 - Jogador atingido por projétil → +1 ponto para o adversário
 - Jogador encosta numa parede → +2 pontos para o adversário e reset de posições
 - Projétil atinge borda → destruído

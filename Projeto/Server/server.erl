@@ -6,10 +6,19 @@
 start() ->
     player_state:start(),
     modifiers:start(),
+    spawn(fun game_loop/0),
+    projectiles:start(),
+    collisions:start(),
     account_server:start(),
     {ok, LSock} = gen_tcp:listen(?PORT, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
     io:format("Server started on port ~p~n", [?PORT]),
     spawn(?MODULE, accept_loop, [LSock]).
+
+game_loop() ->
+    projectiles:update_all(),
+    collisions:check_all(),
+    timer:sleep(50), % 20FPS
+    game_loop().
 
 accept_loop(LSock) ->
     {ok, Sock} = gen_tcp:accept(LSock),
@@ -101,6 +110,27 @@ handle_message(Sock, {pickup_mod, Username}) ->
             client_session:reply(Sock, {error, user_not_found})
     end;
 
+handle_message(Sock, {fire, Username, {TargetX, TargetY}}) ->
+    case player_state:get_position(Username) of
+        {ok, {X, Y}} ->
+            Dx = TargetX - X,
+            Dy = TargetY - Y,
+            Dist = math:sqrt(Dx*Dx + Dy*Dy),
+            NormDx = Dx / Dist,
+            NormDy = Dy / Dist,
+
+            case can_fire(Username) of
+                true ->
+                    projectiles:fire(Username, {X, Y}, {NormDx, NormDy}, 5.0),
+                    set_cooldown(Username),
+                    client_session:reply(Sock, {fired});
+                false ->
+                    client_session:reply(Sock, {error, cooldown})
+            end;
+        _ -> 
+            client_session:reply(Sock, {error, user_not_found})
+    end;
+
 handle_message(Sock, _) ->
     client_session:reply(Sock, {error, "Invalid command"}).
 
@@ -112,3 +142,13 @@ mod_active(Username, blue) ->
     player_data:set_effect(Username, projectile_speed, 0.5);
 mod_active(Username, red) ->
     player_data:set_effect(Username, projectile_speed, 2.0).
+
+set_cooldown(Username) ->
+    ets:insert(player_effects, {Username++"_cooldown", erlang:system_time(millisecond)}).
+
+can_fire(Username) ->
+    case ets:lookup(player_effects, Username++"_cooldown") of
+        [{_, Timestamp}] ->
+            (erlang:system_time(millisecond) - Timestamp) > 1000; % 1 segundo
+        [] -> true
+    end.

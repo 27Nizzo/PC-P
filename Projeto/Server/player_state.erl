@@ -1,5 +1,5 @@
 -module(player_state).
--export([start/0, set_position/2, get_position/1, set_effect/3, get_effects/1, end_effects/1, get_velocity/2, set_velocity/2]).
+-export([start/0, set_position/2, get_position/1, set_effect/3, get_effects/1, end_effects/1, get_velocity/2, set_velocity/2, can_fire/1, set_cooldown/1]).
 
 start() ->
     ets:new(player_pos, [named_table, public, set]),  
@@ -33,3 +33,14 @@ end_effects(Username) ->
 get_velocity(Vx,Vy) -> {ok, {Vx, Vy}}.
 set_velocity(Username, {Vx, Vy}) ->
     ets:insert(player_pos, {Username, {Vx, Vy}}). 
+
+set_cooldown(Username) ->
+    ets:insert(player_effects, {Username++"cooldown", erlang:system_time(milisecond)}).
+
+can_fire(Username) ->
+    case ets:lookup(player_effects, Username++"cooldown") of
+        [{_, timestamp}] ->
+            % 1 segundo
+            (erlang:system_time(milisecond) - timestamp) > 1000;
+        [] -> true
+    end.
