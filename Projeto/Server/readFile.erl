@@ -3,15 +3,24 @@
 
 readAccounts() ->
     case file:read_file("accounts.txt") of
-        {error, _Reason} ->
-            io:format("Arquivo não encontrado. Criando arquivo 'accounts.txt'...~n"),
-            file:write_file("accounts.txt", ""),
-            #{};
-        {ok, FileBin} ->
-            FileStr = binary_to_list(FileBin),
-            Lines = string:split(FileStr, "\n", all),
-            parseList(Lines, #{})
+        {ok, Data} ->
+            try
+                % Remove quebras de linha e transforma em termo Erlang
+                Trimmed = string:trim(binary_to_list(Data)),
+                {ok, Tokens, _} = erl_scan:string(Trimmed ++ "."),
+                {ok, Term} = erl_parse:parse_term(Tokens),
+                {ok, Term}
+            catch
+                _:_ -> 
+                    io:format("Erro ao ler accounts.txt, criando novo~n"),
+                    {ok, #{}}
+            end;
+        {error, enoent} ->
+            {ok, #{}};
+        Error ->
+            Error
     end.
+
 
 parseList([], Acc) -> Acc;
 parseList(["" | T], Acc) -> parseList(T, Acc); % Ignora linhas vazias
@@ -32,16 +41,9 @@ parseList([H | T], Acc) ->
             parseList(T, Acc)
     end.
 
-writeAccounts(AccMap) ->
-    Lines = maps:to_list(AccMap),
-    Data = lists:map(fun({Username, Info}) ->
-        Username ++ "." ++ term_to_list(Info)
-    end, Lines),
-    Content = string:join(Data, "\n"),
-    case file:write_file("accounts.txt", Content) of
-        ok -> io:format("Conta guardada com sucesso.~n");
-        {error, Reason} -> io:format("Erro ao salvar a conta: ~p~n", [Reason])
-    end.
+writeAccounts(Accounts) ->
+    % Garante que o arquivo é sobrescrito com os dados corretos
+    file:write_file("accounts.txt", io_lib:format("~p.~n", [Accounts]), [write, binary]).
 
 term_to_list(Term) ->
     lists:flatten(io_lib:format("~p", [Term])).

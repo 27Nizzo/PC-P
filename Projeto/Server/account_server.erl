@@ -1,256 +1,365 @@
 -module(account_server).
 -export([
-    start/0, create_account/2, is_logged_in/1, 
-    online/0, remove_account/1,
-    rpc/1, login/1, logout/1, auth/1,
-    loop/1, get_stats/1, update_stats/2, get_leaderboard/0
+    start/0, stop/0, create_account/2, is_logged_in/1, 
+    online/0, remove_account/1, login/1, logout/1, 
+    auth/1, get_stats/1, update_stats/2, get_leaderboard/0
 ]).
 
--record(player, {
-    username = undefined,
-    nvl = 1,
-    wins = 0,
-    losses = 0,
-    logged_in = false,
-    current_streak = 0,
-    is_in_win_streak = true,
-    loss_streak = 0
-}).
+-define(TIMEOUT, 5000).
+-define(FILENAME, "accounts.txt").
 
-% Interface RPC
-rpc(Request) ->
-    ?MODULE ! {self(), Request},
-    receive
-        Response -> Response
-    after 5000 ->
-        {error, timeout}
-    end.
+%%% Interface Pública %%%
 
-% Iniciar servidor com dados carregados
+
 start() ->
     case whereis(?MODULE) of
         undefined ->
-            Users = case readFile:readAccounts() of
-                       {ok, U} -> U;
-                       _ -> #{}
-                    end,
-            Pid = spawn(fun() -> loop(Users) end),
+            {ok, Users} = load_accounts(),
+            Pid = spawn(fun() -> server_loop(Users) end),
             register(?MODULE, Pid),
             {ok, started};
         _Pid ->
             {error, already_started}
     end.
 
-% Loop principal do servidor
-loop(Users) ->
-    receive
-        {Pid, {create_account, User, Pass}} ->
-            case maps:is_key(User, Users) of
-                true ->
-                    Pid ! {error, user_exists},
-                    loop(Users);
-                false when Pass == "" ->
-                    Pid ! {error, invalid_password},
-                    loop(Users);
-                false ->
-                    Info = #player{
-                        username = User,
-                        nvl = 1,
-                        wins = 0,
-                        losses = 0,
-                        logged_in = false,
-                        current_streak = 0,
-                        is_in_win_streak = true,
-                        loss_streak = 0
-                    },
-                    UserMap = player_to_map(Info#{password => Pass}),
-                    NewUsers = maps:put(User, UserMap, Users),
-                    readFile:writeAccounts(NewUsers),
-                    Pid ! {ok, created},
-                    loop(NewUsers)
-            end;
-
-        {Pid, {remove_account, {User, Pass}}} ->
-            case maps:get(User, Users, undefined) of
-                undefined ->
-                    Pid ! {error, invalid_account},
-                    loop(Users);
-                #{password := PassStored} when PassStored == Pass ->
-                    NewUsers = maps:remove(User, Users),
-                    readFile:writeAccounts(NewUsers),
-                    Pid ! {ok, removed},
-                    loop(NewUsers);
-                _ ->
-                    Pid ! {error, invalid_password},
-                    loop(Users)
-            end;
-
-        {Pid, {login, {User, Pass}}} ->
-            case maps:get(User, Users, undefined) of
-                undefined ->
-                    Pid ! {error, invalid_account},
-                    loop(Users);
-                #{password := PassStored, logged_in := false} = Info when PassStored == Pass ->
-                    NewInfo = Info#{logged_in => true},
-                    NewUsers = maps:put(User, NewInfo, Users),
-                    readFile:writeAccounts(NewUsers),
-                    Pid ! {ok, logged_in},
-                    loop(NewUsers);
-                #{logged_in := true} ->
-                    Pid ! {error, logged_in},
-                    loop(Users);
-                _ ->
-                    Pid ! {error, invalid_password},
-                    loop(Users)
-            end;
-
-        {Pid, {logout, {User, Pass}}} ->
-            case maps:get(User, Users, undefined) of
-                undefined ->
-                    Pid ! {error, invalid_account},
-                    loop(Users);
-                #{password := PassStored, logged_in := true} = Info when PassStored == Pass ->
-                    NewInfo = Info#{logged_in => false},
-                    NewUsers = maps:put(User, NewInfo, Users),
-                    readFile:writeAccounts(NewUsers),
-                    Pid ! {ok, logged_out},
-                    loop(NewUsers);
-                _ ->
-                    Pid ! {error, not_logged_in_or_wrong_password},
-                    loop(Users)
-            end;
-
-        {Pid, {auth, {User, Pass}}} ->
-            case maps:get(User, Users, undefined) of
-                #{password := PassStored, logged_in := true} when PassStored == Pass ->
-                    Pid ! true;
-                _ ->
-                    Pid ! false
-            end,
-            loop(Users);
-
-        {Pid, {is_logged_in, User}} ->
-            case maps:get(User, Users, undefined) of
-                #{logged_in := true} ->
-                    Pid ! true;
-                _ ->
-                    Pid ! false
-            end,
-            loop(Users);
-
-        {Pid, online} ->
-            Online = [U || {U, #{logged_in := true}} <- maps:to_list(Users)],
-            Pid ! Online,
-            loop(Users);
-
-        {Pid, {get_stats, User}} ->
-            case maps:get(User, Users, undefined) of
-                undefined ->
-                    Pid ! {error, user_not_found},
-                    loop(Users);
-                #{nvl := Nvl, wins := Wins, losses := Losses} ->
-                    Pid ! {ok, #{nvl => Nvl, wins => Wins, losses => Losses}},
-                    loop(Users)
-            end;
-
-        {Pid, {update_stats, User, Result}} ->
-            case maps:get(User, Users, undefined) of
-                undefined ->
-                    Pid ! {error, not_found},
-                    loop(Users);
-                Info = #{nvl := Nvl, wins := Wins, losses := Losses} ->
-                    NewInfo = case Result of
-                        win -> 
-                            CurrentStreak = maps:get(current_streak, Info, 0) + 1,
-                            NewNvl = case CurrentStreak >= Nvl of
-                                true -> Nvl + 1;
-                                false -> Nvl
-                            end,
-                            Info#{
-                                nvl => NewNvl,
-                                wins => Wins + 1,
-                                current_streak => CurrentStreak,
-                                is_in_win_streak => true,
-                                loss_streak => 0
-                            };
-                        loss -> 
-                            LossStreak = maps:get(loss_streak, Info, 0) + 1,
-                            RequiredLosses = ceil(Nvl / 2),
-                            NewNvl = case LossStreak >= RequiredLosses of
-                                true -> max(1, Nvl - 1);
-                                false -> Nvl
-                            end,
-                            Info#{
-                                nvl => NewNvl,
-                                losses => Losses + 1,
-                                current_streak => 0,
-                                is_in_win_streak => false,
-                                loss_streak => LossStreak
-                            };
-                        timeout_win ->
-                            update_stats(User, win);
-                        timeout_loss ->
-                            update_stats(User, loss);
-                        _ -> Info
-                    end,
-                    NewUsers = maps:put(User, NewInfo, Users),
-                    readFile:writeAccounts(NewUsers),
-                    Pid ! {ok, updated},
-                    loop(NewUsers)
-            end;
-
-        {Pid, get_leaderboard} ->
-            List = maps:to_list(Users),
-            Sorted = lists:sort(fun compare_users/2, List),
-            Formatted = [format_user(U, Info) || {U, Info} <- Sorted],
-            Pid ! {ok, Formatted},
-            loop(Users);
-
-        Unknown ->
-            io:format("Unknown message: ~p~n", [Unknown]),
-            loop(Users)
+stop() ->
+    case whereis(?MODULE) of
+        undefined -> ok;
+        Pid -> 
+            Pid ! stop,
+            unregister(?MODULE),
+            ok
     end.
 
-% API pública
-create_account(User, Pass) -> rpc({create_account, User, Pass}).
-remove_account({User, Pass}) -> rpc({remove_account, {User, Pass}}).
-login({User, Pass}) -> rpc({login, {User, Pass}}).
-logout({User, Pass}) -> rpc({logout, {User, Pass}}).
-auth({User, Pass}) -> rpc({auth, {User, Pass}}).
-is_logged_in(User) -> rpc({is_logged_in, User}).
-online() -> rpc(online).
-get_stats(User) -> rpc({get_stats, User}).
-update_stats(User, Result) -> rpc({update_stats, User, Result}).
-get_leaderboard() ->
+create_account(User, Pass) -> 
+    rpc({create_account, User, Pass}).
+
+remove_account({User, Pass}) -> 
+    rpc({remove_account, {User, Pass}}).
+
+login({User, Pass}) -> 
+    rpc({login, {User, Pass}}).
+
+logout({User, Pass}) -> 
+    rpc({logout, {User, Pass}}).
+
+auth({User, Pass}) -> 
+    rpc({auth, {User, Pass}}).
+
+is_logged_in(User) -> 
+    rpc({is_logged_in, User}).
+
+online() -> 
+    rpc(online).
+
+get_stats(User) -> 
+    rpc({get_stats, User}).
+
+update_stats(User, Result) -> 
+    rpc({update_stats, User, Result}).
+
+get_leaderboard() -> 
     case rpc(get_leaderboard) of
         {ok, Leaderboard} -> lists:sublist(Leaderboard, 10);
         Error -> Error
     end.
 
-compare_users({_, Info1}, {_, Info2}) ->
-    Nvl1 = maps:get(nvl, Info1, 0),
-    Nvl2 = maps:get(nvl, Info2, 0),
-    case Nvl1 > Nvl2 of
-        true -> true;
-        false when Nvl1 < Nvl2 -> false;
-        false ->
-            Streak1 = maps:get(current_streak, Info1, 0),
-            Streak2 = maps:get(current_streak, Info2, 0),
-            Win1 = maps:get(is_in_win_streak, Info1, true),
-            Win2 = maps:get(is_in_win_streak, Info2, true),
-            compare_streak(Streak1, Win1, Streak2, Win2)
+%%% Funções de Persistência %%%
+
+load_accounts() ->
+    case file:read_file(?FILENAME) of
+        {ok, Data} ->
+            try
+                {ok, parse_accounts(binary_to_list(Data))}
+            catch
+                _:_ -> 
+                    io:format("Erro ao ler arquivo, criando novo~n"),
+                    {ok, #{}}
+            end;
+        {error, enoent} ->
+            io:format("Arquivo não encontrado, criando novo~n"),
+            {ok, #{}};
+        {error, Reason} ->
+            io:format("Erro ao ler arquivo: ~p~n", [Reason]),
+            {ok, #{}}
     end.
 
-compare_streak(_, true, _, false) -> true;
-compare_streak(_, false, _, true) -> false;
-compare_streak(S1, _, S2, _) -> S1 >= S2.
+parse_accounts(Data) ->
+    Lines = string:split(Data, "\n", all),
+    lists:foldl(fun parse_line/2, #{}, Lines).
 
-format_user(User, Info) ->
-    #{username => User,
-      nvl => maps:get(nvl, Info, 1),
-      wins => maps:get(wins, Info, 0),
-      losses => maps:get(losses, Info, 0)}.
+parse_line(Line, Acc) ->
+    case string:split(Line, ".", leading) of
+        [Username, MapStr] ->
+            case safe_parse_map(MapStr) of
+                {ok, Map} -> 
+                    io:format("Carregada conta: ~s~n", [Username]),
+                    maps:put(Username, Map, Acc);
+                error -> 
+                    io:format("Linha ignorada: ~s~n", [Line]),
+                    Acc
+            end;
+        _ -> 
+            io:format("Linha mal formatada ignorada~n"),
+            Acc
+    end.
 
-% Converte record player para map
-player_to_map(#player{} = P) ->
-    maps:from_list([{Field, element(I, P)} || {Field, I} <- record_info(fields, player)]).
+safe_parse_map(MapStr) ->
+    try
+        {ok, Tokens, _} = erl_scan:string(MapStr ++ "."),
+        {ok, Term} = erl_parse:parse_term(Tokens),
+        case is_map(Term) of
+            true -> {ok, Term};
+            false -> error
+        end
+    catch
+        _:_ -> error
+    end.
+
+save_accounts(Accounts) ->
+    TempFile = ?FILENAME ++ ".tmp",
+    FinalFile = ?FILENAME,
+    Content = lists:map(
+        fun({User, Map}) -> 
+            io_lib:format("~s.~p", [User, Map])
+        end,
+        maps:to_list(Accounts)),
+    Formatted = string:join(Content, "\n"),
+    % Escreve primeiro num arquivo temporário
+    case file:write_file(TempFile, Formatted) of
+        ok ->
+            % Renomeia atomicamente
+            file:rename(TempFile, FinalFile),
+            ok;
+        Error ->
+            Error
+    end.
+
+%%% Loop Principal do Servidor %%%
+
+server_loop(Users) ->
+    receive
+        {From, {create_account, User, Pass}} ->
+            handle_create(From, User, Pass, Users);
+
+        {From, {remove_account, {User, Pass}}} ->
+            handle_remove(From, User, Pass, Users);
+
+        {From, {login, {User, Pass}}} ->
+            handle_login(From, User, Pass, Users);
+
+        {From, {logout, {User, Pass}}} ->
+            handle_logout(From, User, Pass, Users);
+
+        {From, {auth, {User, Pass}}} ->
+            handle_auth(From, User, Pass, Users);
+
+        {From, {is_logged_in, User}} ->
+            handle_is_logged_in(From, User, Users);
+
+        {From, online} ->
+            handle_online(From, Users);
+
+        {From, {get_stats, User}} ->
+            handle_get_stats(From, User, Users);
+
+        {From, {update_stats, User, Result}} ->
+            handle_update_stats(From, User, Result, Users);
+
+        {From, get_leaderboard} ->
+            handle_leaderboard(From, Users);
+
+        stop ->
+            save_accounts(Users),
+            ok;
+
+        Unknown ->
+            io:format("Unknown message: ~p~n", [Unknown]),
+            server_loop(Users)
+    end.
+
+%%% Handlers Específicos %%%
+
+handle_create(From, User, Pass, Users) ->
+    case {maps:is_key(User, Users), Pass =:= ""} of
+        {true, _} -> 
+            From ! {error, user_exists},
+            server_loop(Users);
+        {_, true} -> 
+            From ! {error, invalid_password},
+            server_loop(Users);
+        _ ->
+            NewUser = #{
+                username => User,
+                password => Pass,
+                nvl => 1,
+                wins => 0,
+                losses => 0,
+                logged_in => false,
+                current_streak => 0,
+                is_in_win_streak => true,
+                loss_streak => 0
+            },
+            NewUsers = maps:put(User, NewUser, Users),
+            save_accounts(NewUsers),
+            From ! {ok, created},
+            server_loop(NewUsers)
+    end.
+
+handle_remove(From, User, Pass, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{password := PassStored} when PassStored =:= Pass ->
+            NewUsers = maps:remove(User, Users),
+            save_accounts(NewUsers),
+            From ! {ok, removed},
+            server_loop(NewUsers);
+        _ ->
+            From ! {error, invalid_credentials},
+            server_loop(Users)
+    end.
+
+handle_login(From, User, Pass, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{password := PassStored, logged_in := false} when PassStored =:= Pass ->
+            NewUsers = maps:update(User, fun(M) -> M#{logged_in := true} end, Users),
+            save_accounts(NewUsers),
+            From ! {ok, logged_in},
+            server_loop(NewUsers);
+        #{logged_in := true} ->
+            From ! {error, already_logged_in},
+            server_loop(Users);
+        _ ->
+            From ! {error, invalid_credentials},
+            server_loop(Users)
+    end.
+
+handle_logout(From, User, Pass, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{password := PassStored, logged_in := true} when PassStored =:= Pass ->
+            NewUsers = maps:update(User, fun(M) -> M#{logged_in := false} end, Users),
+            save_accounts(NewUsers),
+            From ! {ok, logged_out},
+            server_loop(NewUsers);
+        _ ->
+            From ! {error, invalid_credentials},
+            server_loop(Users)
+    end.
+
+handle_auth(From, User, Pass, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{password := PassStored, logged_in := true} when PassStored =:= Pass ->
+            From ! true;
+        _ ->
+            From ! false
+    end,
+    server_loop(Users).
+
+handle_is_logged_in(From, User, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{logged_in := true} -> From ! true;
+        _ -> From ! false
+    end,
+    server_loop(Users).
+
+handle_online(From, Users) ->
+    Online = [U || {U, #{logged_in := true}} <- maps:to_list(Users)],
+    From ! Online,
+    server_loop(Users).
+
+handle_get_stats(From, User, Users) ->
+    case maps:get(User, Users, undefined) of
+        #{nvl := Nvl, wins := Wins, losses := Losses} ->
+            From ! {ok, #{nvl => Nvl, wins => Wins, losses => Losses}};
+        undefined ->
+            From ! {error, user_not_found}
+    end,
+    server_loop(Users).
+
+handle_update_stats(From, User, Result, Users) ->
+    case maps:get(User, Users, undefined) of
+        undefined ->
+            From ! {error, user_not_found},
+            server_loop(Users);
+        #{nvl := Nvl, wins := Wins, losses := Losses} = UserData ->
+            UpdatedData = case Result of
+                win -> update_win_stats(UserData);
+                loss -> update_loss_stats(UserData);
+                _ -> UserData
+            end,
+            NewUsers = maps:put(User, UpdatedData, Users),
+            save_accounts(NewUsers),
+            From ! {ok, updated},
+            server_loop(NewUsers)
+    end.
+
+handle_leaderboard(From, Users) ->
+    Leaderboard = generate_leaderboard(Users),
+    From ! {ok, Leaderboard},
+    server_loop(Users).
+
+%%% Funções Auxiliares %%%
+
+update_win_stats(#{nvl := Nvl, wins := Wins, current_streak := Streak} = User) ->
+    NewStreak = Streak + 1,
+    NewNvl = case NewStreak >= Nvl of
+        true -> Nvl + 1;
+        false -> Nvl
+    end,
+    User#{
+        nvl => NewNvl,
+        wins => Wins + 1,
+        current_streak => NewStreak,
+        is_in_win_streak => true,
+        loss_streak => 0
+    }.
+
+update_loss_stats(#{nvl := Nvl, losses := Losses, loss_streak := LossStreak} = User) ->
+    NewLossStreak = LossStreak + 1,
+    RequiredLosses = ceil(Nvl / 2),
+    NewNvl = case NewLossStreak >= RequiredLosses of
+        true -> max(1, Nvl - 1);
+        false -> Nvl
+    end,
+    User#{
+        nvl => NewNvl,
+        losses => Losses + 1,
+        current_streak => 0,
+        is_in_win_streak => false,
+        loss_streak => NewLossStreak
+    }.
+
+generate_leaderboard(Users) ->
+    Sorted = lists:sort(
+        fun({_, A}, {_, B}) -> 
+            compare_users(A, B) 
+        end, 
+        maps:to_list(Users)),
+    [format_leaderboard_entry(U, D) || {U, D} <- Sorted].
+
+compare_users(#{nvl := NvlA, current_streak := StreakA, is_in_win_streak := WinA},
+              #{nvl := NvlB, current_streak := StreakB, is_in_win_streak := WinB}) ->
+    case NvlA > NvlB of
+        true -> true;
+        false when NvlA < NvlB -> false;
+        false ->
+            case {WinA, WinB} of
+                {true, false} -> true;
+                {false, true} -> false;
+                _ -> StreakA >= StreakB
+            end
+    end.
+
+format_leaderboard_entry(User, #{nvl := Nvl, wins := Wins, losses := Losses}) ->
+    #{username => User, nvl => Nvl, wins => Wins, losses => Losses}.
+
+rpc(Request) ->
+    case whereis(?MODULE) of
+        undefined -> {error, server_not_running};
+        _ ->
+            ?MODULE ! {self(), Request},
+            receive
+                Response -> Response
+            after ?TIMEOUT ->
+                {error, timeout}
+            end
+    end.
