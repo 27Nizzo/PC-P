@@ -8,6 +8,7 @@
 **Grupo:** até 4 elementos
 
 ## 📋 Descrição
+ip privado da maquina e no cliente tambem 
 
 Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, onde múltiplos jogadores interagem através de uma **interface gráfica em Java**, comunicando com um **servidor em Erlang**. O jogo inclui movimentação, combate com projéteis, modificadores, e progressão por níveis.
 

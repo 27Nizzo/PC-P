@@ -3,12 +3,20 @@
 
 start() ->
     try
-        ets:new(player_pos, [named_table, set, public]),  
-        ets:new(player_effects, [named_table, set, public]),
-        ok
+        case ets:info(player_pos) of
+            undefined -> 
+                ets:new(player_pos, [named_table, set, public]);
+            _ -> ok
+        end,
+        case ets:info(player_effects) of
+            undefined ->
+                ets:new(player_effects, [named_table, set, public]);
+            _ -> ok
+        end,
+        {ok, tables_ready}
     catch
-        error:badarg -> 
-            {error, tables_already_exist}
+        error:Reason ->
+            {error, {table_creation_failed, Reason}}
     end.
 
 set_position(Username, {X, Y}) ->
@@ -17,36 +25,36 @@ set_position(Username, {X, Y}) ->
 get_position(Username) ->  
     case ets:lookup(player_pos, Username) of 
         [{Username, Pos}] -> {ok, Pos};
-        [] -> {error, not_found}  % More consistent with Erlang conventions
+        [] -> {error, not_found}
     end.
 
 set_effect(Username, EffectKey, Value) ->
     Effects = case ets:lookup(player_effects, Username) of
         [{Username, Map}] -> maps:put(EffectKey, Value, Map);
-        [] -> #{EffectKey => Value}  % More efficient than maps:from_list for single key
+        [] -> #{EffectKey => Value}
     end,
     ets:insert(player_effects, {Username, Effects}).
 
 get_effects(Username) ->
     case ets:lookup(player_effects, Username) of
         [{Username, Effects}] -> {ok, Effects};
-        [] -> {ok, #{}}  % Wrapped in {ok, _} for consistency
+        [] -> {ok, #{}}
     end.
 
 end_effects(Username) ->
     ets:delete(player_effects, Username).
 
-get_velocity(Vx,Vy) -> {ok, {Vx, Vy}}.
+get_velocity(Vx, Vy) -> {ok, {Vx, Vy}}.
+
 set_velocity(Username, {Vx, Vy}) ->
     ets:insert(player_pos, {Username, {Vx, Vy}}). 
 
 set_cooldown(Username) ->
-    ets:insert(player_effects, {Username++"cooldown", erlang:system_time(milisecond)}).
+    ets:insert(player_effects, {Username++"_cooldown", erlang:system_time(millisecond)}).  % Corrigido: millisecond
 
 can_fire(Username) ->
-    case ets:lookup(player_effects, Username++"cooldown") of
-        [{_, timestamp}] ->
-            % 1 segundo
-            (erlang:system_time(milisecond) - timestamp) > 1000;
+    case ets:lookup(player_effects, Username++"_cooldown") of
+        [{_, Timestamp}] ->
+            (erlang:system_time(millisecond) - Timestamp) > 1000;  % Corrigido: millisecond
         [] -> true
     end.

@@ -1,179 +1,184 @@
 -module(server).
--export([start/0, accept_loop/1, handle_client/1]).
+-export([start/0, stop/0, accept_loop/1, handle_client/1]).
 
 -define(PORT, 1234).
 
 start() ->
-    % Inicializa todas as tabelas ETS necessárias
-    ets:new(player_sockets, [named_table, set, public]),
-    ets:new(player_effects, [named_table, set, public]),
+    io:format("Iniciando servidor na porta ~p...~n", [?PORT]),
     
-    % Inicia todos os módulos necessários
-    player_state:start(),
-    modifiers:start(),
-    projectiles:start(),
-    collisions:start(),
-    account_server:start(),
-    matchmaker:start(),
+    % Inicializa serviços essenciais com tratamento robusto
+    case initialize_services() of
+        {error, Reason} ->
+            io:format("Falha na inicialização: ~p~n", [Reason]),
+            {error, initialization_failed};
+        ok ->
+            start_tcp_server()
+    end.
+
+stop() ->
+    io:format("Parando servidor...~n"),
+    % Limpeza de todos os serviços
+    stop_services(),
+    init:stop().
+
+initialize_services() ->
+    Services = [
+        {fun player_state:start/0, "Player State"},
+        {fun modifiers:start/0, "Modifiers"},
+        {fun projectiles:start/0, "Projectiles"},
+        {fun collisions:start/0, "Collisions"},
+        {fun account_server:start/0, "Account Server"},
+        {fun matchmaker:start/0, "Matchmaker"}
+    ],
     
-    % Inicia o game loop
-    spawn(fun game_loop/0),
-    
-    % Configura o socket do servidor
-    {ok, LSock} = gen_tcp:listen(?PORT, [
+    start_services(Services).
+
+start_services([]) -> ok;
+start_services([{ServiceFun, Name}|Rest]) ->
+    io:format("Iniciando ~s... ", [Name]),
+    try
+        case ServiceFun() of
+            ok -> 
+                io:format("[OK]~n"),
+                start_services(Rest);
+            {ok, _} -> 
+                io:format("[OK]~n"),
+                start_services(Rest);
+            {error, already_started} -> 
+                io:format("[ALREADY RUNNING]~n"),
+                start_services(Rest);
+            {error, table_already_exists} ->
+                io:format("[TABLE EXISTS - RECOVERED]~n"),
+                start_services(Rest);
+            {error, Reason} -> 
+                io:format("[ERROR: ~p]~n", [Reason]),
+                {error, {service_start_failed, Name}};
+            Other ->
+                io:format("[UNEXPECTED: ~p]~n", [Other]),
+                start_services(Rest)
+        end
+    catch
+        Error:CatchReason ->
+            io:format("[CRASH: ~p]~n", [{Error, CatchReason}]),
+            {error, {service_crashed, Name}}
+    end.
+
+stop_services() ->
+    lists:foreach(fun(Mod) ->
+        try Mod:stop() catch _:_ -> ok end
+    end, [matchmaker, collisions, projectiles, modifiers, player_state, account_server]).
+
+start_tcp_server() ->
+    case gen_tcp:listen(?PORT, [
         binary, 
         {packet, 0}, 
         {active, false}, 
-        {reuseaddr, true}
-    ]),
-    io:format("Server started on port ~p~n", [?PORT]),
-    
-    % Inicia o loop de aceitação de conexões
-    spawn(?MODULE, accept_loop, [LSock]),
-    ok.
-
-game_loop() ->
-    projectiles:update_all(),
-    collisions:check_all(),
-    timer:sleep(50), % ~20 FPS
-    game_loop().
-
-accept_loop(LSock) ->
-    case gen_tcp:accept(LSock) of
-        {ok, Sock} ->
-            Pid = spawn(?MODULE, handle_client, [Sock]),
-            gen_tcp:controlling_process(Sock, Pid),
-            accept_loop(LSock);
+        {reuseaddr, true},
+        {backlog, 50}
+    ]) of
+        {ok, ListenSocket} ->
+            io:format("Socket de escuta criado com sucesso~n"),
+            spawn(?MODULE, accept_loop, [ListenSocket]),
+            {ok, ListenSocket};
         {error, Reason} ->
-            io:format("Accept error: ~p~n", [Reason]),
-            accept_loop(LSock)
+            io:format("Erro ao criar socket: ~p~n", [Reason]),
+            {error, socket_creation_failed}
     end.
 
-handle_client(Sock) ->
-    client_session:start(Sock, fun handle_message/2).
-
-handle_message(Sock, {login, Username, Password}) ->
-    case account_server:login({Username, Password}) of
-        {ok, logged_in} ->
-            ets:insert(player_sockets, {Username, Sock}),
-            client_session:reply(Sock, {login_success});
+accept_loop(ListenSocket) ->
+    case gen_tcp:accept(ListenSocket) of
+        {ok, Socket} ->
+            io:format("Nova conexão aceite~n"),
+            Pid = spawn(?MODULE, handle_client, [Socket]),
+            gen_tcp:controlling_process(Socket, Pid),
+            accept_loop(ListenSocket);
+        {error, closed} ->
+            io:format("Socket de escuta fechado~n");
         {error, Reason} ->
-            client_session:reply(Sock, {login_failed, Reason})
-    end;
+            io:format("Erro ao aceitar conexão: ~p~n", [Reason]),
+            accept_loop(ListenSocket)
+    end.
 
-handle_message(Sock, {register, Username, Password}) ->
+handle_client(Socket) ->
+    case gen_tcp:recv(Socket, 0) of
+        {ok, Data} ->
+            try binary_to_term(Data) of
+                Message ->
+                    handle_message(Socket, Message),
+                    handle_client(Socket)
+            catch
+                error:badarg ->
+                    io:format("Mensagem inválida recebida~n"),
+                    gen_tcp:send(Socket, term_to_binary({error, invalid_message})),
+                    handle_client(Socket)
+            end;
+        {error, closed} ->
+            io:format("Cliente desconectado~n");
+        {error, Reason} ->
+            io:format("Erro na conexão: ~p~n", [Reason])
+    end.
+
+handle_message(Socket, {register, Username, Password}) ->
     case account_server:create_account(Username, Password) of
         {ok, created} ->
-            client_session:reply(Sock, {register_success});
+            gen_tcp:send(Socket, term_to_binary({register_success}));
         {error, Reason} ->
-            client_session:reply(Sock, {register_failed, Reason})
+            gen_tcp:send(Socket, term_to_binary({register_failed, Reason}))
     end;
 
-handle_message(Sock, {join_queue, Username}) ->
+handle_message(Socket, {login, Username, Password}) ->
+    case account_server:login({Username, Password}) of
+        {ok, logged_in} ->
+            ets:insert(player_sockets, {Username, Socket}),
+            gen_tcp:send(Socket, term_to_binary({login_success}));
+        {error, Reason} ->
+            gen_tcp:send(Socket, term_to_binary({login_failed, Reason}))
+    end;
+
+handle_message(Socket, {join_queue, Username}) ->
     case account_server:is_logged_in(Username) of
         true ->
             case matchmaker:enter_queue(Username) of
                 {ok, queued} ->
-                    client_session:reply(Sock, {queue_joined});
+                    gen_tcp:send(Socket, term_to_binary({queue_joined}));
                 Error ->
-                    client_session:reply(Sock, Error)
+                    gen_tcp:send(Socket, term_to_binary(Error))
             end;
         false ->
-            client_session:reply(Sock, {error, not_logged_in})
+            gen_tcp:send(Socket, term_to_binary({error, not_logged_in}))
     end;
 
-handle_message(Sock, {leave_queue, Username}) ->
-    case matchmaker:leave_queue(Username) of
-        {ok, left_queue} ->
-            client_session:reply(Sock, {queue_left});
-        Error ->
-            client_session:reply(Sock, Error)
-    end;
-
-handle_message(Sock, {move, Username, Direction}) ->
-    case {player_state:get_position(Username), player_state:get_velocity(Username)} of
-        {{ok, {X, Y}}, {ok, {Vx, Vy}}} ->
-            {Ax, Ay} = case Direction of
-                up -> {0.0, 0.2};
-                down -> {0.0, -0.2};
-                left -> {-0.2, 0.0};
-                right -> {0.2, 0.0}
-            end,
-            NVx = clamp(Vx + Ax, -2.0, 2.0),
-            NVy = clamp(Vy + Ay, -2.0, 2.0),
-            Nx = X + NVx,
-            Ny = Y + NVy,
-            player_state:set_velocity(Username, {NVx, NVy}),
-            player_state:set_position(Username, {Nx, Ny}),
-            client_session:reply(Sock, {moved, {Nx, Ny}, {NVx, NVy}});
-        _ ->
-            client_session:reply(Sock, {error, user_not_found})
-    end;
-
-handle_message(Sock, {fire, Username, {TargetX, TargetY}}) ->
+handle_message(Socket, {move, Username, Direction}) ->
     case player_state:get_position(Username) of
         {ok, {X, Y}} ->
-            Dx = TargetX - X,
-            Dy = TargetY - Y,
-            Dist = math:sqrt(Dx*Dx + Dy*Dy),
-            case can_fire(Username) andalso Dist > 0 of
-                true ->
-                    NormDx = Dx / Dist,
-                    NormDy = Dy / Dist,
-                    projectiles:fire(Username, {X, Y}, {NormDx, NormDy}, 5.0),
-                    set_cooldown(Username),
-                    client_session:reply(Sock, {fired});
-                false ->
-                    client_session:reply(Sock, {error, cooldown})
+            {Vx, Vy} = calculate_velocity(Direction),
+            player_state:set_position(Username, {X + Vx, Y + Vy}),
+            player_state:set_velocity(Username, {Vx, Vy}),
+            gen_tcp:send(Socket, term_to_binary({moved, {X + Vx, Y + Vy}}));
+        {error, Reason} ->
+            gen_tcp:send(Socket, term_to_binary({error, Reason}))
+    end;
+
+handle_message(Socket, {fire, Username, Target}) ->
+    case player_state:can_fire(Username) of
+        true ->
+            case player_state:get_position(Username) of
+                {ok, Position} ->
+                    projectiles:fire(Username, Position, Target, 5.0),
+                    player_state:set_cooldown(Username),
+                    gen_tcp:send(Socket, term_to_binary({fired}));
+                {error, Reason} ->
+                    gen_tcp:send(Socket, term_to_binary({error, Reason}))
             end;
-        _ ->
-            client_session:reply(Sock, {error, user_not_found})
+        false ->
+            gen_tcp:send(Socket, term_to_binary({error, cooldown}))
     end;
 
-handle_message(Sock, {get_duel_time, Username}) ->
-    case matchmaker:get_duel(Username) of
-        {ok, DuelPid} ->
-            case duel:get_state(DuelPid) of
-                {ok, DuelState} ->
-                    Start = element(2, DuelState),
-                    Dur = element(3, DuelState),
-                    Remaining = max(0, Start + Dur - erlang:system_time(second)),
-                    client_session:reply(Sock, {duel_time, Remaining});
-                _ ->
-                    client_session:reply(Sock, {error, invalid_duel})
-            end;
-        _ ->
-            client_session:reply(Sock, {error, not_in_duel})
-    end;
+handle_message(Socket, _Unknown) ->
+    gen_tcp:send(Socket, term_to_binary({error, unknown_command})).
 
-handle_message(Sock, {duel_action, Username, Action}) ->
-    case matchmaker:get_duel(Username) of
-        {ok, DuelPid} ->
-            handle_duel_action(DuelPid, Username, Action, Sock);
-        _ ->
-            client_session:reply(Sock, {error, not_in_duel})
-    end;
-
-handle_message(Sock, _) ->
-    client_session:reply(Sock, {error, invalid_command}).
-
-% Funções auxiliares
-clamp(Value, Min, _) when Value < Min -> Min;
-clamp(Value, _, Max) when Value > Max -> Max;
-clamp(Value, _, _) -> Value.
-
-set_cooldown(Username) ->
-    ets:insert(player_effects, {Username++"_cooldown", erlang:system_time(millisecond)}).
-
-can_fire(Username) ->
-    case ets:lookup(player_effects, Username++"_cooldown") of
-        [{_, Timestamp}] ->
-            (erlang:system_time(millisecond) - Timestamp) > 1000; % 1 segundo
-        [] -> true
-    end.
-
-handle_duel_action(_, Username, {fire, Target}, Sock) ->
-    handle_message(Sock, {fire, Username, Target});
-
-handle_duel_action(_, Username, {move, Direction}, Sock) ->
-    handle_message(Sock, {move, Username, Direction}).
+calculate_velocity(up) -> {0, 1};
+calculate_velocity(down) -> {0, -1};
+calculate_velocity(left) -> {-1, 0};
+calculate_velocity(right) -> {1, 0};
+calculate_velocity(_) -> {0, 0}.

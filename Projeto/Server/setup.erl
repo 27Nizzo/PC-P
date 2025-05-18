@@ -5,20 +5,22 @@ start() ->
     io:format("=== Iniciando Sistema de Jogo ===~n~n"),
     try
         init_all(),
-        io:format("~n=== Sistema pronto! ===~n")
+        io:format("~n=== Sistema pronto! ===~n"),
+        ok
     catch
         Error:Reason:Stacktrace ->
             io:format("~n=== ERRO durante inicialização ===~n"),
             io:format("Tipo: ~p~nMotivo: ~p~n", [Error, Reason]),
             io:format("Stacktrace: ~p~n", [Stacktrace]),
-            stop()
+            stop(),
+            {error, Reason}
     end.
 
 init_all() ->
     % 1. Iniciar dependências
     io:format("1. Iniciando dependências...~n"),
-    application:start(sasl),
-    application:start(crypto),
+    ensure_application(sasl),
+    ensure_application(crypto),
 
     % 2. Compilar todos os módulos
     io:format("2. Compilando módulos...~n"),
@@ -35,15 +37,45 @@ init_all() ->
         readFile,
         server
     ],
-    lists:foreach(fun(M) ->
-        case compile:file(M) of
-            {ok, _} -> io:format("  ~-20s [OK]~n", [M]);
-            Error -> io:format("  ~-20s [ERRO: ~p]~n", [M, Error])
-        end
-    end, Modules),
+    compile_modules(Modules),
 
     % 3. Iniciar serviços base
     io:format("~n3. Iniciando serviços base...~n"),
+    start_core_services(),
+
+    % 4. Iniciar servidor TCP
+    io:format("~n4. Iniciando servidor TCP...~n"),
+    case server:start() of
+        {ok, _} -> 
+            io:format("  Servidor TCP [OK]~n");
+        {error, initialization_failed} ->
+            io:format("  Servidor TCP [ERRO: initialization_failed]~n"),
+            throw(initialization_failed);
+        {error, Reason} -> 
+            io:format("  Servidor TCP [ERRO: ~p]~n", [Reason]),
+            throw({tcp_server_error, Reason})
+    end.
+
+ensure_application(App) ->
+    case application:start(App) of
+        ok -> ok;
+        {error, {already_started, _}} -> ok;
+        Error -> throw({app_start_failed, App, Error})
+    end.
+
+compile_modules([]) -> ok;
+compile_modules([Module|Rest]) ->
+    case compile:file(Module) of
+        {ok, _} -> 
+            io:format("  ~-20s [OK]~n", [Module]);
+        {error, Errors, Warnings} -> 
+            io:format("  ~-20s [ERRO: ~p, WARN: ~p]~n", [Module, Errors, Warnings]);
+        Error -> 
+            io:format("  ~-20s [ERRO: ~p]~n", [Module, Error])
+    end,
+    compile_modules(Rest).
+
+start_core_services() ->
     Services = [
         {account_server, "Servidor de Contas"},
         {player_state, "Estado de Jogadores"},
@@ -52,44 +84,38 @@ init_all() ->
         {collisions, "Sistema de Colisões"},
         {matchmaker, "Sistema de Matchmaking"}
     ],
-    lists:foreach(fun({Mod, Name}) -> start_service(Mod, Name) end, Services),
-
-    % 4. Iniciar servidor TCP
-    io:format("~n4. Iniciando servidor TCP...~n"),
-    case server:start() of
-        {ok, _} -> io:format("  Servidor TCP [OK]~n");
-        Error -> io:format("  Servidor TCP [ERRO: ~p]~n", [Error])
-    end.
+    lists:foreach(fun({Mod, Name}) -> start_service(Mod, Name) end, Services).
 
 start_service(Module, Name) ->
     try
         case Module:start() of
-            {ok, _} -> io:format("  ~-20s [OK]~n", [Name]);
+            ok -> 
+                io:format("  ~-20s [OK]~n", [Name]);
+            {ok, _} -> 
+                io:format("  ~-20s [OK]~n", [Name]);
             {error, already_started} -> 
-                io:format("  ~-20s [JÁ INICIADO]~n", [Name]);
-            Other -> 
-                io:format("  ~-20s [ERRO: ~p]~n", [Name, Other]),
-                throw({service_start_failed, Module})
+                io:format("  ~-20s [ALREADY RUNNING]~n", [Name]);
+            {error, table_already_exists} -> 
+                io:format("  ~-20s [TABLE EXISTS - RECOVERED]~n", [Name]);
+            {error, Reason} -> 
+                io:format("  ~-20s [ERROR: ~p]~n", [Name, Reason]),
+                throw({service_start_failed, Module});
+            Other ->
+                io:format("  ~-20s [UNEXPECTED: ~p]~n", [Name, Other]),
+                throw({unexpected_return, Module})
         end
     catch
-        Error:Reason ->
-            io:format("  ~-20s [CRASH: ~p]~n", [Name, {Error, Reason}]),
+        error:badarg ->
+            % Tratamento especial para erros de tabela ETS
+            io:format("  ~-20s [TABLE EXISTS - RECOVERED]~n", [Name]);
+        Error:Reason2 ->
+            io:format("  ~-20s [CRASH: ~p]~n", [Name, {Error, Reason2}]),
             throw({service_crashed, Module})
     end.
 
 stop() ->
     io:format("~n=== Parando servidor... ===~n"),
-    lists:foreach(fun
-        ({RegName, _Pid}) -> 
-            try 
-                case RegName of
-                    account_server -> account_server ! stop;
-                    _ -> ok
-                end
-            catch _:_ -> ok end;
-        (_) -> ok
-    end, registered()),
-    init:stop(),
+    server:stop(),
     io:format("Servidor parado com sucesso.~n").
 
 % erl -make && erl -noshell -s setup start -> WSL/Bash % 
