@@ -31,10 +31,11 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Ficheiro persistente para guardar dados (cliente auxiliar) : MAIS OU MENOS
 - Jogadores começam no nível 1 : CHECK
 
-### 2. Progressão de Nível
+### 2. Progressão de Nível -> Server Part Done
 - Sobe de nível após ganhar `n` partidas consecutivas (nível n)
 - Desce se perder `⌈n/2⌉` partidas consecutivas (nível mínimo = 1)
 
+# Done
 ### 3. Matchmaking e Partidas
 - Cada partida tem 2 jogadores com no máximo 1 nível de diferença
 - Jogadores entram em espera ao pedir para jogar
@@ -44,11 +45,12 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Espaço retangular, limitado por paredes
 - Avatares em forma de círculo, posicionados inicialmente em lados opostos
 
-### 5. Mecânica de Movimento
+### 5. Mecânica de Movimento -> Server Part Done
 - Controlado por teclas (cima, baixo, esquerda, direita)
 - Aceleração progressiva com inércia
 - Velocidade máxima predefinida
 
+# Done
 ### 6. Projéteis
 - Cada jogador pode disparar periodicamente
 - Direção definida pelo cursor do rato
@@ -63,14 +65,16 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
   - **Vermelho**: aumenta tempo entre disparos
 - Ao serem apanhados, aplicam efeito ao jogador
 
-### 8. Colisões
+# Done
+### 8. Colisões 
 - Jogador atingido por projétil → +1 ponto para o adversário
 - Jogador encosta numa parede → +2 pontos para o adversário e reset de posições
 - Projétil atinge borda → destruído
 - Projétil atinge modificador ou jogador → aplica efeito
 - Colisões entre jogadores e entre projéteis/modificadores → ignoradas
 
-### 9. Pontuação e Fim de Partida
+# Done
+### 9. Pontuação e Fim de Partida 
 - Duração de cada partida: 2 minutos
 - Jogador com maior pontuação vence
 - Empates não afetam níveis nem top 10
