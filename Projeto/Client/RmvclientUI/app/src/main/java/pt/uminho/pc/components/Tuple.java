@@ -1,4 +1,4 @@
-package Client;
+package pt.uminho.pc.components;
 
 public class Tuple<S1, S2> {
     public S1 first;
@@ -16,6 +16,4 @@ public class Tuple<S1, S2> {
         sb.append(second);
         return sb.toString();
     }
-
-    
 }
