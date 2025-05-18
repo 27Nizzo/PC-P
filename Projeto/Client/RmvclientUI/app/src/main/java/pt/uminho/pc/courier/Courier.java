@@ -1,32 +1,33 @@
-package Client;
-import java.io.IOException;
+package pt.uminho.pc.courier;
 
-import Client.Exceptions.FullServer;
-import Client.Exceptions.InvalidAccount;
-import Client.Exceptions.InvalidPassword;
-import Client.Exceptions.UserExists;
+import pt.uminho.pc.components.GameBoard;
+import pt.uminho.pc.components.Mouse;
+import pt.uminho.pc.courier.Exceptions.*;
+import java.io.IOException;
 
 public class Courier implements Runnable {
     private final ClientTCP cTcp;
     private final Mouse mouse;
     private final Data data;
-    private final Board board;
+    private final GameBoard board;
     
-    public Courier(ClientTCP cTcp, Mouse mouse, Board board, Data data) {
+    public Courier(ClientTCP cTcp, Mouse mouse, GameBoard board, Data data) {
         this.cTcp = cTcp;
         this.mouse = mouse;
         this.data = data;
         this.board = board;
     }
+
     public void run() {
-        while(true) {
+        while (true) {
             data.lock.lock();
             try {
                 data.waitPostman.await();
                 handleOption();
-            } catch (InterruptedException | IOException e) {
+            } catch (Exception e) {
                 handleError();
             } finally {
+                data.waitScreen.signal();
                 data.lock.unlock();
             }
         }
@@ -66,24 +67,25 @@ public class Courier implements Runnable {
         }
         data.waitScreen.signal();
     }
-private void handleLogin() throws InvalidPassword, InvalidAccount {
+    
+    private void handleLogin() throws InvalidPassword, InvalidAccount, IOException {
         cTcp.login(data.username, data.password);
         data.response = Response.DONE;
     }
 
-    private void handleCreateAccount() throws UserExists {
+    private void handleCreateAccount() throws UserExists, InvalidPassword, IOException {
         cTcp.create_account(data.username, data.password);
         clearCredentials();
         data.response = Response.DONE;
     }
 
-    private void handleDeleteAccount() throws InvalidPassword, InvalidAccount {
+    private void handleDeleteAccount() throws InvalidPassword, InvalidAccount, IOException {
         cTcp.remove_account(data.username, data.password);
         clearCredentials();
         data.response = Response.DONE;
     }
 
-    private void handleLogout() throws InvalidPassword, InvalidAccount {
+    private void handleLogout() throws InvalidPassword, InvalidAccount, IOException {
         cTcp.logout();
         clearCredentials();
         data.response = Response.DONE;
@@ -94,16 +96,16 @@ private void handleLogin() throws InvalidPassword, InvalidAccount {
         data.response = Response.DONE;
     }
 
-    private void handlePlay() throws IOException, InvalidPassword, InvalidAccount {
+    private void handlePlay() throws IOException, InvalidAccount, FullServer {
         cTcp.join(data.username, data.password);
         data.response = Response.DONE;
-        data.option = State.LEADERBOARD;
+        data.option = "LEADERBOARD";
 
         new Thread(() -> {
             try {
                 String response = cTcp.receive();
                 if ("start".equals(response)) {
-                    data.option = State.GAME;
+                    data.option = "GAME";
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -115,16 +117,16 @@ private void handleLogin() throws InvalidPassword, InvalidAccount {
         String response = cTcp.receive();
 
         if (response == null || "defeat".equals(response) || "winner".equals(response)) {
-            data.option = State.LOGGED_IN;
+            data.option = "LOGGED_IN";
             data.response = Response.SWITCH;
         } else {
-            board.setBoard(data.username, response);
+            board.update(data.username, response);
             cTcp.mouse(mouse.toString());
             data.response = Response.DONE;
         }
     }
 
-    private void handleLeaveGame() throws IOException {
+    private void handleLeaveGame() {
         cTcp.send("leave#");
         data.response = Response.DONE;
     }
