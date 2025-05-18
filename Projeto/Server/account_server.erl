@@ -121,7 +121,7 @@ save_accounts(Accounts) ->
     FinalFile = ?FILENAME,
     Content = lists:map(
         fun({User, Map}) -> 
-            io_lib:format("~s.~p", [User, Map])
+            io_lib:format("~s.~250p", [User, Map])
         end,
         maps:to_list(Accounts)),
     Formatted = string:join(Content, "\n"),
