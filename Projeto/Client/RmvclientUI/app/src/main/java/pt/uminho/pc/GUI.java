@@ -5,17 +5,21 @@ package pt.uminho.pc;
 
 import processing.core.PApplet;
 import processing.core.PFont;
-import pt.uminho.pc.components.Board;
+import pt.uminho.pc.components.GameBoard;
 import pt.uminho.pc.components.Mouse;
 import pt.uminho.pc.courier.ClientTCP;
 import pt.uminho.pc.courier.Courier;
 import pt.uminho.pc.courier.Data;
-import pt.uminho.pc.courier.Exceptions;
+import pt.uminho.pc.states.*;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GUI extends PApplet {
+    private static final String USERNAME = "admin";
+    private static final String PASSWORD = "admin";
+
     private static String HOST;
     private static int PORT;
 
@@ -46,27 +50,35 @@ public class GUI extends PApplet {
         System.exit(1);
     }
 
-    Mouse mouse;
-    Board board;
-    Data data;
+    // Components
+    private Mouse mouse;
+    private GameBoard board;
+    private Data data;
+    private ClientTCP client;
+    
+    // UI state
+    private String username = "";
+    private String password = "";
+    private String message = "";
+    private boolean loggedIn = false;
+    private PFont font;
+    private int WindowWidth = 600;
+    private int WindowHeight = 400;
 
-    ClientTCP client;
-
-    String username = "";
-    String password = "";
-    String message = "";
-    boolean loggedIn = false;
-    PFont font;
-    int WindowWidth = 800;
-    int WindowHeight = 600;
-
-    State currentState = State.MENU;
-
-    boolean usernameActive = false;
-    boolean passwordActive = false;
-
+    private State currentState = State.MENU;
+    private Map<State, GameState> states = new HashMap<>();
+    
+    // Error handling
     private String errorMessage = "";
     private String stateBeforeError = "";
+    
+    // Game states
+    private PlayState playState;
+    private MenuState menuState;
+    private CredentialsState credentialsState;
+    private SearchingState searchingState;
+    private GameOverState gameOverState;
+    private ErrorState errorState;
 
     public void settings() {
         size(WindowWidth, WindowHeight);
@@ -74,208 +86,119 @@ public class GUI extends PApplet {
 
     public void setup() {
         this.mouse = new Mouse(this);
-        this.board = new Board(this);
+        this.board = new GameBoard(15, 24, WindowWidth, WindowHeight);
         this.data = new Data();
 
         this.client = null;
         try {
             client = new ClientTCP(HOST, PORT);
         } catch (IOException e) {
-            showError(e.getMessage());
+            //showError(e.getMessage());
         }
 
         Thread courierThread = new Thread(new Courier(client, mouse, board, data));
         courierThread.start();
 
+        // Initialize game states
+        initializeStates();
+        
         mouse.showCursor();
+    }
+    
+    private void initializeStates() {
+        playState = new PlayState();
+        menuState = new MenuState();
+        credentialsState = new CredentialsState();
+        searchingState = new SearchingState();
+        gameOverState = new GameOverState(playState);
+        errorState = new ErrorState();
+        
+        states.put(State.PLAY, playState);
+        states.put(State.MENU, menuState);
+        states.put(State.ENTER_CREDENTIALS, credentialsState);
+        states.put(State.SEARCHING, searchingState);
+        states.put(State.GAME_OVER, gameOverState);
+        states.put(State.ERROR, errorState);
     }
 
     public void draw() {
-        background(200);
-
-        switch (currentState) {
-            case MENU:
-                drawMenu();
-                break;
-            case ENTER_CREDENTIALS:
-                drawCredentialsInput();
-                break;
-            case PLAY:
-                drawPlayScreen();
-                break;
-            case ERROR:
-                drawErrorScreen();
-                break;
-            case LEADERBOARD:
-                drawLeaderBoard();
-                break;
-            default:
-                fill(0);
-                text("Server Message: " + message, 20, 50);
+        GameState currentGameState = states.get(currentState);
+        if (currentGameState != null) {
+            currentGameState.draw(this);
         }
-    }
-
-    private void showError(String message) {
-        errorMessage = message;
-        stateBeforeError = currentState.toString();
-        currentState = State.ERROR;
-    }
-
-    private void drawErrorScreen() {
-        // Draw full screen background first
-        fill(200);
-        rect(0, 0, width, height);
-        
-        // Draw error popup
-        fill(240, 20, 20);
-        rect(width/2 - 150, height/2 - 100, 300, 200);
-        
-        // Error message
-        fill(255);
-        textAlign(CENTER, CENTER);
-        text("ERROR", width/2, height/2 - 70);
-        textAlign(CENTER, CENTER);
-        text(errorMessage, width/2, height/2);
-
-        // Disable mouse
-        mouse.hideCursor();
-        
-        // Reset text alignment
-        textAlign(LEFT, BASELINE);
-    }
-
-    boolean button(String label, int x, int y, int w, int h, State nextState) {
-        boolean over = mouse.isMouseOver(x, y, w, h);
-        fill(over ? 150 : 100);
-        rect(x, y, w, h);
-        fill(255);
-        text(label, x + 10, y + 20);
-
-        if (over && mousePressed) {
-            currentState = nextState;
-            return true;
-        }
-        return false;
-    }
-
-    private void drawMenu() {
-        button("LOGIN", WindowWidth/2-60, 100, 120, 30, State.ENTER_CREDENTIALS);
-        button("REGISTER", WindowWidth/2-60, 150, 120, 30, State.ENTER_CREDENTIALS);
-        button("UNREGISTER", WindowWidth/2-60, 200, 120, 30, State.ENTER_CREDENTIALS);
-        button("PLAY", WindowWidth/2-60, 250, 120, 30, State.PLAY);
-        button("LEADERBOARD", WindowWidth/2-60, 300, 120, 30, State.LEADERBOARD); // Novo botão
-    }
-
-    private void drawLeaderBoard() {
-        background(200);
-        fill(0);
-        textAlign(CENTER, CENTER);
-        textSize(20);
-        text("Top 10 Jogadores", WindowWidth / 2, 50);
-
-        // Solicitar dados do servidor
-        List<String> leaderboard;
-        try {
-            leaderboard = client.getLeaderBoard();
-        } catch (IOException e) {
-            showError("Failed to fetch leaderboard: " + e.getMessage());
-            return;
-        }
-
-        // Exibir os jogadores
-        for (int i = 0; i < leaderboard.size(); i++) {
-            text((i + 1) + ". " + leaderboard.get(i), WindowWidth / 2, 100 + i * 30);
-        }
-
-        // Botão para voltar ao menu principal
-        if (button("VOLTAR", WindowWidth / 2 - 60, 400, 120, 30, State.MENU)) {
-            currentState = State.MENU;
-        }
-    }
-
-    private void drawCredentialsInput() {
-        fill(0);
-        text("Username:", 80, 80);
-        text("Password:", 80, 130);
-
-        stroke(0);
-        noFill();
-        rect(200, 60, 200, 30);
-        fill(0);
-        text(username, 205, 80);
-        if (usernameActive && ((frameCount / 30) % 2 == 0)) {
-            float cx = 205 + textWidth(username);
-            stroke(0);
-            line(cx, 65, cx, 85);  // smaller blinking cursor height
-        }
-
-        // Password field box
-        stroke(0);
-        noFill();
-        rect(200, 110, 200, 30);
-        fill(0);
-        text(password, 205, 130);
-        if (passwordActive && ((frameCount / 30) % 2 == 0)) {
-            float cx2 = 205 + textWidth(password);
-            stroke(0);
-            line(cx2, 115, cx2, 135);  // smaller blinking cursor height
-        }
-
-        if (button("Submit", 75, 200, 100, 30, State.MENU)) {
-            if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
-                showError("Username and password cannot be empty.");
-                return;
-            }
-
-            try {
-                this.client.login(username, password);
-            } catch (IOException | Exceptions.InvalidPassword | Exceptions.InvalidAccount e) {
-                throw new RuntimeException(e);
-            }
-
-            username = "";
-            password = "";
-            usernameActive = passwordActive = false;
-        }
-    }
-
-    private void drawPlayScreen() {
-        board.drawBoard();
     }
 
     public void mousePressed() {
-        if (currentState == State.ENTER_CREDENTIALS) {
-            if (mouse.isMouseOver(200, 60, 200, 30)) {
-                usernameActive = true;
-                passwordActive = false;
-            } else if (mouse.isMouseOver(200, 110, 200, 30)) {
-                usernameActive = false;
-                passwordActive = true;
-            }
-        } else if (currentState == State.ERROR) {
-            // Check if OK button is clicked
-            if (mouseX > width/2 - 40 && mouseX < width/2 + 40 && 
-                mouseY > height/2 + 50 && mouseY < height/2 + 80) {
-                currentState = State.valueOf(stateBeforeError);
-            }
+        GameState currentGameState = states.get(currentState);
+        if (currentGameState != null) {
+            currentGameState.mousePressed(this);
         }
     }
 
     public void keyPressed() {
-        if (currentState == State.ENTER_CREDENTIALS) {
-            if (key == BACKSPACE) {
-                if (passwordActive && !password.isEmpty()) {
-                    password = password.substring(0, password.length() - 1);
-                } else if (usernameActive && !username.isEmpty()) {
-                    username = username.substring(0, username.length() - 1);
-                }
-            } else if (key != ENTER && key != RETURN) {
-                if (usernameActive && username.length() < 20) {
-                    username += key;
-                } else if (passwordActive && password.length() < 20) {
-                    password += key;
-                }
+        GameState currentGameState = states.get(currentState);
+        if (currentGameState != null) {
+            currentGameState.keyPressed(this, keyCode, key);
+        }
+    }
+    
+    public void switchState(State newState) {
+        if (newState == State.SEARCHING && currentState != State.SEARCHING) {
+            if (playState != null) {
+                playState.reset();
             }
         }
+        
+        currentState = newState;
+    }
+    
+    public void showError(String message) {
+        errorMessage = message;
+        stateBeforeError = currentState.toString();
+        currentState = State.ERROR;
+    }
+    
+    public boolean authenticate() {
+        System.out.println("Authenticating, username: " + username + " password: " + password);
+        
+        if (username.equals(USERNAME) && password.equals(PASSWORD)) {
+            System.out.println("Login ok");
+            loggedIn = true;
+            return true;
+        } else {
+            System.out.println("Login failed");
+            System.out.println("Input username: " + username + " password: " + password);
+            System.out.println("Expected username: " + USERNAME + " password: " + PASSWORD);
+            showError("Invalid username or password");
+            return false;
+        }
+    }
+    
+    public String getUsername() {
+        return username;
+    }
+    
+    public void setUsername(String username) {
+        this.username = username;
+    }
+    
+    public String getPassword() {
+        return password;
+    }
+    
+    public void setPassword(String password) {
+        this.password = password;
+    }
+    
+    public boolean isLoggedIn() {
+        return loggedIn;
+    }
+    
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+    
+    public String getStateBeforeError() {
+        return stateBeforeError;
     }
 }

@@ -1,6 +1,6 @@
 package pt.uminho.pc.courier;
 
-import pt.uminho.pc.components.Board;
+import pt.uminho.pc.components.GameBoard;
 import pt.uminho.pc.components.Mouse;
 import pt.uminho.pc.courier.Exceptions.*;
 import java.io.IOException;
@@ -9,9 +9,9 @@ public class Courier implements Runnable {
     private final ClientTCP cTcp;
     private final Mouse mouse;
     private final Data data;
-    private final Board board;
+    private final GameBoard board;
     
-    public Courier(ClientTCP cTcp, Mouse mouse, Board board, Data data) {
+    public Courier(ClientTCP cTcp, Mouse mouse, GameBoard board, Data data) {
         this.cTcp = cTcp;
         this.mouse = mouse;
         this.data = data;
@@ -120,7 +120,7 @@ public class Courier implements Runnable {
             data.option = "LOGGED_IN";
             data.response = Response.SWITCH;
         } else {
-            board.setBoard(data.username, response);
+            board.update(data.username, response);
             cTcp.mouse(mouse.toString());
             data.response = Response.DONE;
         }

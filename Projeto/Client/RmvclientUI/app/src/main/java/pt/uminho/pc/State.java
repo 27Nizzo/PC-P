@@ -1,12 +1,13 @@
 package pt.uminho.pc;
 
-enum State {
+public enum State {
     MENU,
     LOGIN,
     REGISTER,
     UNREGISTER,
+    SEARCHING,
     PLAY,
     ENTER_CREDENTIALS,
     ERROR,
-    LEADERBOARD,
+    GAME_OVER
 }
