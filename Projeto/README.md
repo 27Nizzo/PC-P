@@ -35,7 +35,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Sobe de nível após ganhar `n` partidas consecutivas (nível n)
 - Desce se perder `⌈n/2⌉` partidas consecutivas (nível mínimo = 1)
 
-# TODO
+# Done
 ### 3. Matchmaking e Partidas
 - Cada partida tem 2 jogadores com no máximo 1 nível de diferença
 - Jogadores entram em espera ao pedir para jogar
@@ -73,7 +73,7 @@ Este projeto consiste na implementação de um mini-jogo 2D chamado **Duelo**, o
 - Projétil atinge modificador ou jogador → aplica efeito
 - Colisões entre jogadores e entre projéteis/modificadores → ignoradas
 
-# TODO
+# Done
 ### 9. Pontuação e Fim de Partida 
 - Duração de cada partida: 2 minutos
 - Jogador com maior pontuação vence
