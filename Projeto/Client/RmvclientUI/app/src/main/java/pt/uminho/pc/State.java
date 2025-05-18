@@ -7,5 +7,6 @@ enum State {
     UNREGISTER,
     PLAY,
     ENTER_CREDENTIALS,
-    ERROR
+    ERROR,
+    LEADERBOARD,
 }

@@ -13,6 +13,7 @@ import pt.uminho.pc.courier.Data;
 import pt.uminho.pc.courier.Exceptions;
 
 import java.io.IOException;
+import java.util.List;
 
 public class GUI extends PApplet {
     private static String HOST;
@@ -76,15 +77,15 @@ public class GUI extends PApplet {
         this.board = new Board(this);
         this.data = new Data();
 
-//        this.client = null;
-//        try {
-//            client = new ClientTCP(HOST, PORT);
-//        } catch (IOException e) {
-//            showError(e.getMessage());
-//        }
-//
-//        Thread courierThread = new Thread(new Courier(client, mouse, board, data));
-//        courierThread.start();
+        this.client = null;
+        try {
+            client = new ClientTCP(HOST, PORT);
+        } catch (IOException e) {
+            showError(e.getMessage());
+        }
+
+        Thread courierThread = new Thread(new Courier(client, mouse, board, data));
+        courierThread.start();
 
         mouse.showCursor();
     }
@@ -104,6 +105,9 @@ public class GUI extends PApplet {
                 break;
             case ERROR:
                 drawErrorScreen();
+                break;
+            case LEADERBOARD:
+                drawLeaderBoard();
                 break;
             default:
                 fill(0);
@@ -159,6 +163,34 @@ public class GUI extends PApplet {
         button("REGISTER", WindowWidth/2-60, 150, 120, 30, State.ENTER_CREDENTIALS);
         button("UNREGISTER", WindowWidth/2-60, 200, 120, 30, State.ENTER_CREDENTIALS);
         button("PLAY", WindowWidth/2-60, 250, 120, 30, State.PLAY);
+        button("LEADERBOARD", WindowWidth/2-60, 300, 120, 30, State.LEADERBOARD); // Novo botão
+    }
+
+    private void drawLeaderBoard() {
+        background(200);
+        fill(0);
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        text("Top 10 Jogadores", WindowWidth / 2, 50);
+
+        // Solicitar dados do servidor
+        List<String> leaderboard;
+        try {
+            leaderboard = client.getLeaderBoard();
+        } catch (IOException e) {
+            showError("Failed to fetch leaderboard: " + e.getMessage());
+            return;
+        }
+
+        // Exibir os jogadores
+        for (int i = 0; i < leaderboard.size(); i++) {
+            text((i + 1) + ". " + leaderboard.get(i), WindowWidth / 2, 100 + i * 30);
+        }
+
+        // Botão para voltar ao menu principal
+        if (button("VOLTAR", WindowWidth / 2 - 60, 400, 120, 30, State.MENU)) {
+            currentState = State.MENU;
+        }
     }
 
     private void drawCredentialsInput() {
@@ -190,13 +222,14 @@ public class GUI extends PApplet {
         }
 
         if (button("Submit", 75, 200, 100, 30, State.MENU)) {
+            if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
+                showError("Username and password cannot be empty.");
+                return;
+            }
+
             try {
                 this.client.login(username, password);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (Exceptions.InvalidPassword e) {
-                throw new RuntimeException(e);
-            } catch (Exceptions.InvalidAccount e) {
+            } catch (IOException | Exceptions.InvalidPassword | Exceptions.InvalidAccount e) {
                 throw new RuntimeException(e);
             }
 

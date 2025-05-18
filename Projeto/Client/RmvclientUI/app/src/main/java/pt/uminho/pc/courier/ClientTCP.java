@@ -142,4 +142,16 @@ public class ClientTCP {
         return response != null && response.startsWith("joinQueueOK");
     }
 
+    public List<String> getLeaderBoard() throws IOException {
+        send("get_leaderboard#");
+        String response = receive();
+
+        // Parse the response into a list of strings
+        List<String> leaderboard = new ArrayList<>();
+        if (response != null && !response.isEmpty()) {
+            String[] players = response.split(";");
+            Collections.addAll(leaderboard, players);
+        }
+        return leaderboard;
+    }
 }
