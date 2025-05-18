@@ -2,8 +2,14 @@
 -export([start/0, set_position/2, get_position/1, set_effect/3, get_effects/1, end_effects/1, get_velocity/2, set_velocity/2, can_fire/1, set_cooldown/1]).
 
 start() ->
-    ets:new(player_pos, [named_table, public, set]),  
-    ets:new(player_effects, [named_table, public, set]).  
+    try
+        ets:new(player_pos, [named_table, set, public]),  
+        ets:new(player_effects, [named_table, set, public]),
+        ok
+    catch
+        error:badarg -> 
+            {error, tables_already_exist}
+    end.
 
 set_position(Username, {X, Y}) ->
     ets:insert(player_pos, {Username, {X, Y}}).

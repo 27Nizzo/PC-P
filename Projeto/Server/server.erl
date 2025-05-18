@@ -158,8 +158,8 @@ handle_message(Sock, _) ->
     client_session:reply(Sock, {error, invalid_command}).
 
 % Funções auxiliares
-clamp(Value, Min, Max) when Value < Min -> Min;
-clamp(Value, Min, Max) when Value > Max -> Max;
+clamp(Value, Min, _) when Value < Min -> Min;
+clamp(Value, _, Max) when Value > Max -> Max;
 clamp(Value, _, _) -> Value.
 
 set_cooldown(Username) ->
@@ -172,8 +172,8 @@ can_fire(Username) ->
         [] -> true
     end.
 
-handle_duel_action(DuelPid, Username, {fire, Target}, Sock) ->
+handle_duel_action(_, Username, {fire, Target}, Sock) ->
     handle_message(Sock, {fire, Username, Target});
 
-handle_duel_action(DuelPid, Username, {move, Direction}, Sock) ->
+handle_duel_action(_, Username, {move, Direction}, Sock) ->
     handle_message(Sock, {move, Username, Direction}).

@@ -81,6 +81,12 @@ get_client_pid(Username) ->
     end.
 
 duel_ended(P1, P2) ->
-    ets:delete(active_duels, P1),
-    ets:delete(active_duels, P2),
-    ok.
+    case ets:lookup(active_duels, P1) of
+        [{_, DuelPid}] ->
+            ets:delete(active_duels, P1),
+            ets:delete(active_duels, P2),
+            notify_timeout(DuelPid),
+            ok;
+        [] ->
+            {error, duel_not_found}
+    end.

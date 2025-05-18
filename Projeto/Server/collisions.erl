@@ -98,7 +98,7 @@ opponent_of(Player) ->
         _ -> undefined
     end.
 
-opponent_of(Player1, Player2) ->
+opponent_of(Player1, _) ->
     % Em um duelo 1v1, o oponente é o outro jogador
     case duel:get_players(Player1) of
         [Player1, Opponent] -> Opponent;

@@ -53,17 +53,18 @@ loop(Users) ->
                     Pid ! {error, invalid_password},
                     loop(Users);
                 false ->
-                    Info = #{
-                        password => Pass,
-                        nvl => 1,
-                        wins => 0,
-                        losses => 0,
-                        logged_in => false,
-                        current_streak => 0,
-                        is_in_win_streak => true,
-                        loss_streak => 0
+                    Info = #player{
+                        username = User,
+                        nvl = 1,
+                        wins = 0,
+                        losses = 0,
+                        logged_in = false,
+                        current_streak = 0,
+                        is_in_win_streak = true,
+                        loss_streak = 0
                     },
-                    NewUsers = maps:put(User, Info, Users),
+                    UserMap = player_to_map(Info#{password => Pass}),
+                    NewUsers = maps:put(User, UserMap, Users),
                     readFile:writeAccounts(NewUsers),
                     Pid ! {ok, created},
                     loop(NewUsers)
@@ -174,7 +175,7 @@ loop(Users) ->
                             };
                         loss -> 
                             LossStreak = maps:get(loss_streak, Info, 0) + 1,
-                            RequiredLosses = ceil(Nvl/2),
+                            RequiredLosses = ceil(Nvl / 2),
                             NewNvl = case LossStreak >= RequiredLosses of
                                 true -> max(1, Nvl - 1);
                                 false -> Nvl
@@ -240,8 +241,8 @@ compare_users({_, Info1}, {_, Info2}) ->
             compare_streak(Streak1, Win1, Streak2, Win2)
     end.
 
-compare_streak(S1, true, S2, false) -> true;
-compare_streak(S1, false, S2, true) -> false;
+compare_streak(_, true, _, false) -> true;
+compare_streak(_, false, _, true) -> false;
 compare_streak(S1, _, S2, _) -> S1 >= S2.
 
 format_user(User, Info) ->
@@ -249,3 +250,7 @@ format_user(User, Info) ->
       nvl => maps:get(nvl, Info, 1),
       wins => maps:get(wins, Info, 0),
       losses => maps:get(losses, Info, 0)}.
+
+% Converte record player para map
+player_to_map(#player{} = P) ->
+    maps:from_list([{Field, element(I, P)} || {Field, I} <- record_info(fields, player)]).

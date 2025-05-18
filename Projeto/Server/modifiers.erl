@@ -1,9 +1,9 @@
 -module(modifiers).
 -export([start/0, spawn_mod/0, get_at/1, remove/1, list_all/0]).
 
-
 start() ->
-    ets:new(mods, [name_table, public, set]).
+    ets:new(mods, [named_table, public, {keypos, 1}]),  % Corrigido aqui
+    ok.
 
 spawn_mod() ->
     Types = [green, orange, blue, red],

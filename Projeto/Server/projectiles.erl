@@ -1,9 +1,8 @@
 -module(projectiles).
 -export([start/0, fire/4, update_all/0, get_all/0]).
 
-
 start() ->
-    ets:new(projectiles_table, [name_table, public, set]).
+    ets:new(projectiles_table, [named_table, public, set]).
 
 fire(Owner, {X, Y}, {DX, DY}, Speed) ->
     Id = erlang:unique_integer([positive]),
@@ -27,7 +26,6 @@ update_projectile(#{id := Id, position := {X, Y}, direction := {DX, DY}, speed :
     DeltaT = (Now - T) / 1000,
     NewX = X + DX * S * DeltaT,
     NewY = Y + DY * S * DeltaT,
-% Para os projeteis desaparecerem num espaço menor que 0 ou maior que 100 ALTERAR PARA O TAMANHO DO MAPA
     case {NewX < 0 orelse NewX > 100, NewY < 0 orelse NewY > 100} of
         {true, _} -> ets:delete(projectiles_table, Id);
         {_, true} -> ets:delete(projectiles_table, Id);

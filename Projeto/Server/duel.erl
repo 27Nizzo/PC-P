@@ -19,7 +19,7 @@ start(P1, P2) ->
 
 duel_loop(State) ->
     receive
-        {add_point, From, Player, Points} ->
+        {add_point, _, Player, Points} ->
             NewState = case Player of
                 P when P =:= State#duel_state.player1 ->
                     State#duel_state{score1 = State#duel_state.score1 + Points};
@@ -32,7 +32,7 @@ duel_loop(State) ->
             From ! {duel_state, State},
             duel_loop(State);
             
-        {end_duel, From} ->
+        {end_duel, _} ->
             timer:cancel(State#duel_state.timer_ref),
             report_results(State, normal),
             ok;
@@ -46,7 +46,7 @@ duel_loop(State) ->
             duel_loop(State)
     end.
 
-report_results(#duel_state{player1 = P1, player2 = P2, score1 = S1, score2 = S2} = State, EndType) ->
+report_results(#duel_state{player1 = P1, player2 = P2, score1 = S1, score2 = S2}, EndType) ->
     io:format("Duel ended between ~p (~p) and ~p (~p)~n", [P1, S1, P2, S2]),
     
     case {EndType, S1 =:= S2} of
