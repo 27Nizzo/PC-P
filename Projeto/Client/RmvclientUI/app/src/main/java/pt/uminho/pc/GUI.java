@@ -11,6 +11,7 @@ import pt.uminho.pc.courier.ClientTCP;
 import pt.uminho.pc.courier.Courier;
 import pt.uminho.pc.courier.Data;
 import pt.uminho.pc.states.*;
+import pt.uminho.pc.courier.Exceptions;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -76,6 +77,7 @@ public class GUI extends PApplet {
     private PlayState playState;
     private MenuState menuState;
     private CredentialsState credentialsState;
+    private RegisterState registerState;
     private SearchingState searchingState;
     private GameOverState gameOverState;
     private ErrorState errorState;
@@ -93,7 +95,7 @@ public class GUI extends PApplet {
         try {
             client = new ClientTCP(HOST, PORT);
         } catch (IOException e) {
-            //showError(e.getMessage());
+            showError(e.getMessage());
         }
 
         Thread courierThread = new Thread(new Courier(client, mouse, board, data));
@@ -109,6 +111,7 @@ public class GUI extends PApplet {
         playState = new PlayState();
         menuState = new MenuState();
         credentialsState = new CredentialsState();
+        registerState = new RegisterState();
         searchingState = new SearchingState();
         gameOverState = new GameOverState(playState);
         errorState = new ErrorState();
@@ -116,6 +119,7 @@ public class GUI extends PApplet {
         states.put(State.PLAY, playState);
         states.put(State.MENU, menuState);
         states.put(State.ENTER_CREDENTIALS, credentialsState);
+        states.put(State.REGISTER, registerState);
         states.put(State.SEARCHING, searchingState);
         states.put(State.GAME_OVER, gameOverState);
         states.put(State.ERROR, errorState);
@@ -160,18 +164,27 @@ public class GUI extends PApplet {
     
     public boolean authenticate() {
         System.out.println("Authenticating, username: " + username + " password: " + password);
-        
-        if (username.equals(USERNAME) && password.equals(PASSWORD)) {
-            System.out.println("Login ok");
+
+        try {
+            client.login(username, password);
             loggedIn = true;
             return true;
-        } else {
-            System.out.println("Login failed");
-            System.out.println("Input username: " + username + " password: " + password);
-            System.out.println("Expected username: " + USERNAME + " password: " + PASSWORD);
-            showError("Invalid username or password");
-            return false;
+        } catch (IOException e) {
+            showError(e.getMessage());
+        } catch (Exceptions.InvalidPassword e) {
+            showError("Invalid password");
+        } catch (Exceptions.InvalidAccount e) {
+            showError("Invalid account");
         }
+
+        return false;
+    }
+    
+    public boolean registerAccount(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.UserExists {
+        System.out.println("Registering new account, username: " + username + " password: " + password);
+        
+        client.create_account(username, password);
+        return true;
     }
     
     public String getUsername() {

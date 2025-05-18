@@ -80,24 +80,24 @@ public class Courier implements Runnable {
     }
 
     private void handleDeleteAccount() throws InvalidPassword, InvalidAccount, IOException {
-        cTcp.remove_account(data.username, data.password);
+        //cTcp.remove_account(data.username, data.password);
         clearCredentials();
         data.response = Response.DONE;
     }
 
     private void handleLogout() throws InvalidPassword, InvalidAccount, IOException {
-        cTcp.logout();
+        //cTcp.logout();
         clearCredentials();
         data.response = Response.DONE;
     }
 
     private void handleQueues() throws IOException {
-        data.enter_queue = cTcp.enter_queue(); // dar fix aos queues porque ainda está join
+        //data.enter_queue = cTcp.enter_queue(); // dar fix aos queues porque ainda está join
         data.response = Response.DONE;
     }
 
     private void handlePlay() throws IOException, InvalidAccount, FullServer {
-        cTcp.join(data.username, data.password);
+        //cTcp.join(data.username, data.password);
         data.response = Response.DONE;
         data.option = "LEADERBOARD";
 
@@ -121,7 +121,7 @@ public class Courier implements Runnable {
             data.response = Response.SWITCH;
         } else {
             board.update(data.username, response);
-            cTcp.mouse(mouse.toString());
+            //cTcp.mouse(mouse.toString());
             data.response = Response.DONE;
         }
     }
