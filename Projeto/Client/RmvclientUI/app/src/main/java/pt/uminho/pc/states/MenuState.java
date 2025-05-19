@@ -14,7 +14,7 @@ public class MenuState implements GameState {
             drawButton(context, "REGISTER", context.width/2-60, 150, 120, 30, State.REGISTER);
         } else {
             drawButton(context, "PLAY", context.width/2-60, 100, 120, 30, State.SEARCHING);
-            drawButton(context, "UNREGISTER", context.width/2-60, 150, 120, 30, State.ENTER_CREDENTIALS);
+            drawButton(context, "LOGOUT", context.width/2-60, 150, 120, 30, State.MENU);
         }
     }
     
@@ -30,7 +30,10 @@ public class MenuState implements GameState {
             if (isMouseOver(context, context.width/2-60, 100, 120, 30)) {
                 context.switchState(State.SEARCHING);
             } else if (isMouseOver(context, context.width/2-60, 150, 120, 30)) {
-                context.switchState(State.ENTER_CREDENTIALS);
+                boolean success = context.logout();
+                if (success) {
+                    context.switchState(State.MENU);
+                }
             }
         }
     }

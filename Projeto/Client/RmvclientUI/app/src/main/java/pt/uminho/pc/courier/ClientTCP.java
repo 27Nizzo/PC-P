@@ -1,7 +1,5 @@
 package pt.uminho.pc.courier;
 
-import pt.uminho.pc.components.Tuple;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -159,6 +157,15 @@ public class ClientTCP {
             case "Login#Success": break;
             case "Login#InvalidPassword": throw new Exceptions.InvalidPassword("Invalid password");
             case "Login#InvalidAccount":  throw new Exceptions.InvalidAccount("Invalid account");    
+        }
+    }
+
+    public void logout(String username, String password) throws IOException {
+        sendErlangTuple("logout", username, password);
+        
+        String response = receive();
+        switch (response) {
+            case "Login#Success": break; 
         }
     }
 }

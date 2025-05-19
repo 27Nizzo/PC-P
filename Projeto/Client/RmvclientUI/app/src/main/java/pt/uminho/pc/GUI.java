@@ -179,6 +179,20 @@ public class GUI extends PApplet {
 
         return false;
     }
+
+    public boolean logout() {
+        System.out.println("Logging out");
+
+        try {
+            client.logout(username, password);
+            loggedIn = false;
+            return true;
+        } catch (IOException e) {
+            showError(e.getMessage());
+        }
+
+        return false;
+    }
     
     public boolean registerAccount(String username, String password) throws IOException, Exceptions.InvalidPassword, Exceptions.UserExists {
         System.out.println("Registering new account, username: " + username + " password: " + password);

@@ -237,7 +237,8 @@ handle_login(From, User, Pass, Users) ->
 handle_logout(From, User, Pass, Users) ->
     case maps:get(User, Users, undefined) of
         #{password := PassStored, logged_in := true} when PassStored =:= Pass ->
-            NewUsers = maps:update(User, fun(M) -> M#{logged_in := false} end, Users),
+            NewUser = maps:put(logged_in, false, maps:get(User, Users)),
+            NewUsers = maps:put(User, NewUser, Users),
             save_accounts(NewUsers),
             From ! {ok, logged_out},
             server_loop(NewUsers);

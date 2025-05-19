@@ -22,6 +22,7 @@ stop() ->
     init:stop().
 
 initialize_services() ->
+    ets:new(player_sockets, [named_table, public, set]),
     Services = [
         {fun player_state:start/0, "Player State"},
         {fun modifiers:start/0, "Modifiers"},
@@ -124,6 +125,15 @@ handle_message(Socket, {register, Username, Password}) ->
             gen_tcp:send(Socket, term_to_binary({register_success}));
         {error, Reason} ->
             gen_tcp:send(Socket, term_to_binary({register_failed, Reason}))
+    end;
+
+handle_message(Socket, {logout, Username, Password}) ->
+    case account_server:logout({Username, Password}) of
+        {ok, logged_in} ->
+            ets:delete_object(player_sockets, {Username, Socket}),
+            gen_tcp:send(Socket, term_to_binary({logout_success}));
+        {error, Reason} ->
+            gen_tcp:send(Socket, term_to_binary({logout_failed, Reason}))
     end;
 
 handle_message(Socket, {login, Username, Password}) ->
